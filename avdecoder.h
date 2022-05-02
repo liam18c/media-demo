@@ -35,7 +35,9 @@ public:
     void SetPlayMode(int flag);
     void Close();
 
+    //目前视频帧固定为rgb24的格式
     VideoFrame* GetVideoFrame();
+    //目前音频帧全部重采样为44100，16，2格式
     AudioFrame* GetAudioFrame();
 
     void* operator new(size_t) = delete;

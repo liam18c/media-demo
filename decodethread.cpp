@@ -31,7 +31,7 @@ void DecodeThread::Init(const QString& url) {
             //填充视频信息
             m_video_stream = i;
             m_avInfomation->frame_rate = in_stream->avg_frame_rate.num / in_stream->avg_frame_rate.den;
-            qDebug("%d", m_avInfomation->frame_rate);
+            //qDebug("%d", m_avInfomation->frame_rate);
 
             //打开视频解码器
             m_video_codec = avcodec_find_decoder(codec_paras->codec_id);
@@ -52,6 +52,7 @@ void DecodeThread::Init(const QString& url) {
                 return;
             }
         } else if (codec_paras->codec_type == AVMEDIA_TYPE_AUDIO) {
+            //打开音频信息
             m_audio_stream = i;
             m_audio_codec = avcodec_find_decoder(codec_paras->codec_id);
             if (m_audio_codec == NULL) {
@@ -107,6 +108,7 @@ void DecodeThread::run() {
         if (!m_stop.load()) {
             std::unique_lock lock(m_mutex);
             if (av_read_frame(m_fmt_ctx, m_pkt) >= 0) {
+                //解码视频帧
                 if (m_pkt->stream_index == m_video_stream) {
                     ret = avcodec_send_packet(m_video_codec_ctx, m_pkt);
                     while (ret >= 0) {
@@ -115,6 +117,7 @@ void DecodeThread::run() {
 
                         double pos = m_frame->best_effort_timestamp * av_q2d(m_fmt_ctx->streams[m_video_stream]->time_base);
                         if (pos >= m_seek_pos) {
+                            //yuv转rgb
                             uint8_t* data = yuvToRGB24(m_frame, m_frame->width, m_frame->height);
                             VideoFrame* frame = new VideoFrame(data, m_frame->width, m_frame->height);
                             double pos = m_frame->pts * av_q2d(m_fmt_ctx->streams[m_video_stream]->time_base);
@@ -128,6 +131,7 @@ void DecodeThread::run() {
                     }
                 } else if (m_pkt->stream_index == m_audio_stream) {
                     ret = avcodec_send_packet(m_audio_codec_ctx, m_pkt);
+                    //解码音频帧
                     while (ret >= 0) {
                         ret = avcodec_receive_frame(m_audio_codec_ctx, m_frame);
                         if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)) break;
@@ -135,6 +139,7 @@ void DecodeThread::run() {
                         double pos = m_frame->pts * av_q2d(m_fmt_ctx->streams[m_audio_stream]->time_base);
                         if (pos >= m_seek_pos) {
                             uint8_t* data;
+                            //重采样
                             int out_samples = av_rescale_rnd(m_frame->nb_samples, 44100, m_frame->sample_rate, AV_ROUND_UP);
                             av_samples_alloc(&data, NULL, 2, out_samples, AV_SAMPLE_FMT_S16, 0);
                             out_samples = swr_convert(m_swr_ctx, &data, out_samples,
