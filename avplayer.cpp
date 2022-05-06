@@ -4,14 +4,15 @@ AVPlayer::AVPlayer()
 {
     mutex.lock();
     m_state=CLOSE;
-    m_order=true;
-    m_speed=1.0;
+    m_play_mode=1;
+    m_play_speed=1.0;
     mutex.unlock();
 
     m_decoder=AVDecoder::GetInstance();
     m_video_player_thread=new VideoPlayerThread();
 
     connect(m_decoder,&AVDecoder::Ready,this,&AVPlayer::GetDecoderReady);
+    connect(m_video_player_thread,&VideoPlayerThread::PlayFinish,this,&AVPlayer::GetPlayFinish);
 
 }
 
@@ -19,7 +20,7 @@ AVPlayer::~AVPlayer(){
 
 }
 
-void AVPlayer::Start(const QString& url){
+void AVPlayer::Start(const QString& url,void* winId){
     mutex.lock();
     if(m_state==START||m_state==STOP){
         mutex.unlock();
@@ -27,6 +28,7 @@ void AVPlayer::Start(const QString& url){
         mutex.lock();
     }
     m_state=START;
+    m_winId=winId;
     m_decoder->Open(url);
     mutex.unlock();
 }
@@ -38,7 +40,6 @@ void AVPlayer::Resume(){
         return;
     }
     m_state=START;
-    emit m_decoder->resume();
     m_video_player_thread->Resume();
     mutex.unlock();
 }
@@ -50,7 +51,6 @@ void AVPlayer::Stop(){
         return;
     }
     m_state=STOP;
-    emit m_decoder->stop();
     m_video_player_thread->Stop();
     mutex.unlock();
 }
@@ -62,44 +62,73 @@ void AVPlayer::Close(){
         return;
     }
     m_state=CLOSE;
-    emit m_decoder->exit();
     m_video_player_thread->Close();
+    m_decoder->Close();
     mutex.unlock();
 }
 
-void AVPlayer::SetOrder(bool order){
+void AVPlayer::SetPlayMode(int flag){
     mutex.lock();
-    if(m_order==order){
+    if(m_play_mode==flag){
         mutex.unlock();
         return;
     }
-    m_order=order;
-    //    emit m_decoder->SetOrder(order);
-    mutex.unlock();
-}
-
-void AVPlayer::SetSpeed(float speed){
-    mutex.lock();
-    if(qAbs(m_speed-speed)<0.001){
+    m_play_mode=flag;
+    VideoFrame* frame=m_video_player_thread->GetCurrentFrame();
+    if(!frame){
         mutex.unlock();
         return;
     }
-    m_speed=speed;
-    m_video_player_thread->SetSpeed(speed);
-    mutex.unlock();
-}
-
-void AVPlayer::SeekPos(float sec){
-    mutex.lock();
     m_video_player_thread->Stop();
-    m_decoder->SeekPos(sec);
+    m_decoder->SetPos(frame->pos,0);
+    m_decoder->SetPlayMode(flag);
     m_video_player_thread->Resume();
     mutex.unlock();
 }
 
+void AVPlayer::SetPlaySpeed(double speed){
+    mutex.lock();
+    if(qAbs(m_play_speed-speed)<0.001){
+        mutex.unlock();
+        return;
+    }
+    m_play_speed=speed;
+    m_video_player_thread->Stop();
+    m_decoder->SetPlaySpeed(speed);
+    m_video_player_thread->Resume();
+    mutex.unlock();
+}
+
+void AVPlayer::SetPos(double sec,int flag){
+    mutex.lock();
+    m_video_player_thread->Stop();
+    m_decoder->SetPos(sec,flag);
+    m_video_player_thread->Resume();
+    mutex.unlock();
+}
+
+AVInfomation* AVPlayer::GetAVInformation(){
+    mutex.lock();
+    if(m_state==CLOSE){
+        mutex.unlock();
+        return nullptr;
+    }
+    AVInfomation* ret=m_decoder->GetAVInfomation();
+    mutex.unlock();
+    return ret;
+}
 //slots
 void AVPlayer::GetDecoderReady(){
     //接收 m_decoder已初始化完成并启动解码 信号
-    m_video_player_thread->Init(m_decoder);
+    m_video_player_thread->Init(m_decoder,m_winId);
+    printf("videoPlayer init succeed!\n");
     m_video_player_thread->Start();
+    //可捕获该信号作为播放开始的标志
+    emit PlayStart();
+}
+
+void AVPlayer::GetPlayFinish(){
+    this->Close();
+    //可捕获该信号作为播放结束的标志
+    emit PlayFinish();
 }

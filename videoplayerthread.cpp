@@ -1,20 +1,25 @@
 ﻿#include "videoplayerthread.h"
 
-int WIDTH=944;
-int HEIGHT=728;
 
-VideoPlayerThread::VideoPlayerThread(){}
+VideoPlayerThread::VideoPlayerThread(){
+    m_audio_player=new AudioPlayer();
+}
 
-void VideoPlayerThread::Init(AVDecoder* decoder){
+void VideoPlayerThread::Init(AVDecoder* decoder,void* winId){
     this->m_decoder=decoder;
+    m_audio_player->Init(decoder);
+    m_information=m_decoder->GetAVInfomation();
+    m_videoFrame=nullptr;
     int ret=0;
     ret=SDL_Init(SDL_INIT_VIDEO);
     if(ret==-1){
         printf("SDL init fail:%s\n",SDL_GetError());
         return;
     }
-    m_sdl_window=SDL_CreateWindow("PLAYER",SDL_WINDOWPOS_CENTERED,
-                                  SDL_WINDOWPOS_CENTERED,WIDTH,HEIGHT,SDL_WINDOW_RESIZABLE);
+    m_sdl_window=SDL_CreateWindowFrom(winId);
+//    m_sdl_window=SDL_CreateWindow("PLAYER",SDL_WINDOWPOS_CENTERED,
+//                                  SDL_WINDOWPOS_CENTERED,m_information->width,m_information->height,SDL_WINDOW_RESIZABLE);
+    SDL_ShowWindow(m_sdl_window);
     if(m_sdl_window==nullptr){
         printf("fail to create window\n");
         return;
@@ -24,74 +29,88 @@ void VideoPlayerThread::Init(AVDecoder* decoder){
       printf("fail to create render:%s\n",SDL_GetError());
       return;
     }
-    m_sdl_texture = SDL_CreateTexture(m_sdl_render,SDL_PIXELFORMAT_RGB888,SDL_TEXTUREACCESS_STREAMING,WIDTH,HEIGHT);
+    m_sdl_texture = SDL_CreateTexture(m_sdl_render,SDL_PIXELFORMAT_RGB24,SDL_TEXTUREACCESS_STREAMING,m_information->width,m_information->height);
     if (m_sdl_texture == NULL){
       printf("fail to create texture:%s\n",SDL_GetError());
       return;
     }
     m_sdl_rect.x = 0;
     m_sdl_rect.y = 0;
-    m_sdl_rect.w = WIDTH;
-    m_sdl_rect.h = HEIGHT;
+    m_sdl_rect.w = m_information->width;
+    m_sdl_rect.h = m_information->height;
 }
 
 
 
 void VideoPlayerThread::Start(){
+    m_exit.store(false);
+    m_stop.store(false);
     this->start();
+    m_audio_player->Start();
 }
 
 void VideoPlayerThread::Resume(){
-    stop_mutex.unlock();
+    m_stop.store(false);
+    m_audio_player->Resume();
 }
 
 void VideoPlayerThread::Stop(){
-    stop_mutex.lock();
+    m_stop.store(true);
+    m_audio_player->Stop();
 }
 
 void VideoPlayerThread::Close(){
-    m_exit.store(true);
-}
-
-void VideoPlayerThread::SetSpeed(float speed){
-
-}
-
-//int thread_exit=0;
-//int  fresh(void *data){
-
-//  while (thread_exit==0){
-
-//    SDL_Event event;
-//    event.type  = SDL_DISPLAYEVENT;
-//    SDL_PushEvent(&event);
-//    printf("sending\n");
-//    SDL_Delay(40);
-//  }
-//  return 0;
-//}
-
-void VideoPlayerThread::run(){
-    m_exit.store(false);
-    while(!m_exit.load()){
-      stop_mutex.lock();
-      if(m_decoder->HasFrame()) {
-        //读取rgb数据
-        VideoFrame* videoFrame=m_decoder->GetVideoFrame();
-        printf("%d %d \n",videoFrame->width,videoFrame->height);
-        //更新和播放
-        SDL_UpdateTexture(m_sdl_texture, NULL, videoFrame->data, (videoFrame->width)*3);
-        SDL_RenderClear(m_sdl_render);
-        SDL_RenderCopy(m_sdl_render, m_sdl_texture, NULL, &m_sdl_rect);
-        SDL_RenderPresent(m_sdl_render);
-        SDL_Delay(40);
-      }
-      stop_mutex.unlock();
-    }
+    m_stop.store(true);
     m_exit.store(true);
     release();
+    m_audio_player->Close();
+    SDL_Quit();
+}
+
+VideoFrame* VideoPlayerThread::GetCurrentFrame(){
+    return m_videoFrame;
+}
+
+
+void VideoPlayerThread::run(){
+    while(!m_exit.load()){
+        while(!m_stop.load()){
+            m_mutex.lock();
+            //读取rgb数据
+            VideoFrame* videoFrame=m_decoder->GetVideoFrame();
+            if(videoFrame==nullptr){
+                m_mutex.unlock();
+                continue;
+            }
+            m_videoFrame=videoFrame;
+            //更新和播放
+            SDL_UpdateTexture(m_sdl_texture, NULL, videoFrame->data, (videoFrame->width)*3);
+            SDL_RenderClear(m_sdl_render);
+            SDL_RenderCopy(m_sdl_render, m_sdl_texture, NULL, &m_sdl_rect);
+            SDL_RenderPresent(m_sdl_render);
+            SDL_Delay(1000*videoFrame->duration);
+            m_mutex.unlock();
+            if(videoFrame->pos+videoFrame->duration>=m_information->duration-0.010){
+                //可捕获该信号作为播放结束的标志
+                emit PlayFinish();
+            }
+        }
+    }
 }
 
 void VideoPlayerThread::release(){
-
+    m_mutex.lock();
+    if(m_sdl_texture){
+        SDL_DestroyTexture(m_sdl_texture);
+        m_sdl_texture=nullptr;
+    }
+    if(m_sdl_render){
+        SDL_DestroyRenderer(m_sdl_render);
+        m_sdl_render=nullptr;
+    }
+    if(m_sdl_window){
+        SDL_DestroyWindow(m_sdl_window);
+        m_sdl_window=nullptr;
+    }
+    m_mutex.unlock();
 }

@@ -31,8 +31,9 @@ find_package(Qt${QT_VERSION_MAJOR} REQUIRED COMPONENTS Widgets)
 set(PROJECT_SOURCES
         main.cpp
         widget.cpp
+        sonic.cpp
         avplayer.cpp
-        audioplayerthread.cpp
+        audioplayer.cpp
         videoplayerthread.cpp
         decodeutils.cpp
         AVDecoder.cpp
@@ -40,10 +41,11 @@ set(PROJECT_SOURCES
         widget.h
         decodeutils.h
         videoplayerthread.h
-        audioplayerthread.h
+        audioplayer.h
         decodethread.h
         avplayer.h
         AVDecoder.h
+        sonic.h
         widget.ui
 )
 

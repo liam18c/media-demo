@@ -20,28 +20,36 @@ public:
         return &instance;
     }
 
-    void Start(const QString&);
+    void Start(const QString& url,void*winId);
     void Resume();
     void Stop();
     void Close();
-    void SetOrder(bool);
-    void SetSpeed(float);
-    void SeekPos(float);
+    void SetPlayMode(int flag);
+    void SetPlaySpeed(double speed);
+    void SetPos(double sec,int flag);
+    AVInfomation* GetAVInformation();
 
     void* operator new(size_t)=delete;
 
+signals:
+    void PlayFinish();
+    void PlayStart();
+
 public slots:
+    //接收到解码初始化环境成功的信号
     void GetDecoderReady();
+    void GetPlayFinish();
 
 private:
     ~AVPlayer();
 
 private:
     AVPlayerState m_state;
-    bool m_order;
-    float m_speed;
+    int m_play_mode;
+    double m_play_speed;
 
     QMutex mutex;
+    void* m_winId;
     VideoPlayerThread* m_video_player_thread = nullptr;  
     AVDecoder* m_decoder=nullptr;
 };

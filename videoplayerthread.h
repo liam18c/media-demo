@@ -2,8 +2,9 @@
 #define VIDEOPLAYERTHREAD_H
 
 #include <QThread>
+#include <QMutex>
 #include "avdecoder.h"
-#include "audioplayerthread.h"
+#include "audioplayer.h"
 
 #include <SDL.h>
 
@@ -13,13 +14,17 @@ class VideoPlayerThread : public QThread
     Q_OBJECT
 public:
     VideoPlayerThread();
-    void Init(AVDecoder*);
+    void Init(AVDecoder*decoder,void*winId);
 
     void Start();
     void Resume();
     void Stop();
     void Close();
-    void SetSpeed(float);
+
+    VideoFrame* GetCurrentFrame();
+
+signals:
+    void PlayFinish();
 
 protected:
     void run() override;
@@ -33,10 +38,14 @@ private:
     SDL_Texture* m_sdl_texture;
     SDL_Rect m_sdl_rect;
 
-    QMutex stop_mutex;
+    QMutex m_mutex;
     std::atomic_bool m_exit = false;
+    std::atomic_bool m_stop = false;
 
     AVDecoder* m_decoder;
+    AudioPlayer* m_audio_player;
+    AVInfomation*m_information;
+    VideoFrame* m_videoFrame;
 };
 
 #endif // VIDEOPLAYERTHREAD_H

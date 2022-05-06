@@ -18,31 +18,25 @@ Widget::~Widget()
 
 void Widget::on_pushButton_clicked()
 {
-    QString url("../media-demo-Cen/Resources/TestVideo.mp4");
-    player->Start(url);
+    QString url("../media-demo-Cen/Resources/aaa.mkv");
+    player->Start(url,(void*)ui->label->winId());
 }
 
 
 void Widget::on_exit_clicked()
 {
-
+    player->SetPlayMode(-1);
 }
 
 
 void Widget::on_resume_clicked()
 {
-    player->Stop();
+    player->SetPos(40.0,1);
 }
 
 
 void Widget::on_show_clicked()
 {
-    player->Resume();
-//    VideoFrame* frame = player->m_decoder->GetVideoFrame();
-//    QImage image(frame->data, frame->width, frame->height, frame->width * 3, QImage::Format_RGB888);
-//    QPixmap pixmap = QPixmap::fromImage(image);
-//    pixmap = pixmap.scaled(ui->label->size(), Qt::KeepAspectRatio, Qt::SmoothTransformation);
-//    ui->label->setAlignment(Qt::AlignCenter);
-//    ui->label->setPixmap(pixmap);
+    player->Close();
 }
 

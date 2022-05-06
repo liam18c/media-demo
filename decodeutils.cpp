@@ -13,6 +13,7 @@ uint8_t* yuvToRGB24(AVFrame* pFrame, int outWidth, int outHeight, AVPixelFormat 
     int dst_linesize[AV_NUM_DATA_POINTERS] = {0};
     dst_linesize[0] = outWidth * 3;
     sws_scale(sws_ctx, pFrame->data, pFrame->linesize, 0, srcH, data, dst_linesize);
+    sws_freeContext(sws_ctx);
     return dst;
 }
 
@@ -30,4 +31,5 @@ uint8_t* yuvToBGRA(AVFrame* pFrame, int outWidth, int outHeight, AVPixelFormat s
     sws_scale(sws_ctx, pFrame->data, pFrame->linesize, 0, srcH, data, dst_linesize);
     return dst;
 }
+
 
