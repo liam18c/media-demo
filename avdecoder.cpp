@@ -160,6 +160,7 @@ void AVDecoder::SetPlayMode(int flag) {
 void AVDecoder::SetPlaySpeed(double speed) {
     m_mutex.lock();
     if (speed > 0 && speed <= 4) m_play_speed = speed;
+    if (m_play_mode.load() == -1) m_play_speed = std::min(m_play_speed, 2.0);
     m_mutex.unlock();
 }
 
