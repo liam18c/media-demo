@@ -2,16 +2,19 @@
 #define AVDECODER_H
 
 #include <QQueue>
+#include <QStack>
 #include <QTimerEvent>
 #include <cmath>
 
 #include "decodethread.h"
 
-#define AV_SYNC_THRESHOLD_MIN 0.01
-#define AV_SYNC_THRESHOLD_MAX 0.03
-#define AV_FRAMEDOWN_TIME 0.01
-#define AV_FRAMEUP_TIME 0.07
+#define AV_SYNC_THRESHOLD_MIN 0.01 //sec
+#define AV_SYNC_THRESHOLD_MAX 0.03 //sec
+#define AV_FRAMEDOWN_TIME 0.01 //sec
+#define AV_FRAMEUP_TIME 0.08 //sec
+#define AV_END_THRESHOLD 100 //msec
 
+class Inverter;
 template <typename T>
 class FrameQueue;
 
@@ -30,7 +33,7 @@ public:
 
     void Open(QString url);
     //0代表seek，1代表快进或后退，无论哪种模式，sec都表示视频开始到目标时间点的时间总和
-    void SeekPos(double sec, int flag);
+    void SetPos(double sec, int flag);
     //1代表顺序播放，-1代表倒放
     void SetPlayMode(int flag);
     //设置播放速度
@@ -46,14 +49,9 @@ public:
 
     void* operator new(size_t) = delete;
 
-protected slots:
-    void timerEvent(QTimerEvent *event) override;
-
 signals:
     //解码环境初始化成功发送该信号，可捕获
     void Ready();
-    //解码结束信号
-    void Finish();
 
 private slots:
     void receiveVideoFrame(VideoFrame* frame);
@@ -65,9 +63,12 @@ signals:
     void exit();
     void stop();
     void resume();
+    void stopInverter();
+    void resumeInverter(double sec);
+    void seekToPos(double sec, int flag);
 
 private:
-    void resetClock();
+    void reset();
     void scaleAudioSpeed(AudioFrame* frame);
 
     ~AVDecoder();
@@ -75,14 +76,15 @@ private:
 private: 
     std::atomic_int m_state = AVState::CLOSE;
     std::atomic_int m_play_mode = 1;
-    int m_timer_id = -1;
+    int m_sample_rate = 44100;
     double m_play_speed = 1;
 
     QString m_url;
     DecodeThread* m_decode_thread = nullptr;
+    Inverter* m_inverter = nullptr;
 
-    int m_video_buffer_upper_size = 30;
-    int m_video_buffer_lower_size = 15;
+    const int m_video_buffer_upper_size = 30;
+    const int m_video_buffer_lower_size = 15;
 
     std::mutex m_mutex;
 
@@ -98,6 +100,134 @@ private:
     FrameQueue<AudioFrame>* m_audio_frame_queue;
 };
 
+
+class Inverter : public QThread {
+    Q_OBJECT
+public:
+    Inverter() {
+
+    }
+
+public slots:
+
+    void Resume(double sec) {
+        //播放位置大于0才能倒放
+        if (sec > 0) {
+            reset(sec);
+            m_stop.store(false);
+            emit seekToPos(std::max(sec - 1, 0.0), 0);
+            start();
+        }
+    }
+    void Stop() {
+        m_stop.store(true);
+        emit stop();
+        reset(-1);
+    }
+
+    void receiveVideoFrame(VideoFrame* frame) {
+        if (frame == nullptr) return;
+        std::unique_lock lock(m_mutex);
+        if (!m_stop.load() && frame->pos <= m_seek_pos) {
+            while (!m_video_frame_stack.empty() && std::abs(frame->pos - m_video_frame_stack.top()->pos) >= 0.1) {
+                delete m_video_frame_stack.top();
+                m_video_frame_stack.pop();
+                m_cur_pos = frame->pos;
+            }
+
+            m_cur_pos = std::max(0.0, std::min(m_cur_pos, frame->pos));
+            m_video_frame_stack.push(frame);
+        } else {
+            delete frame;
+        }
+    }
+    void receiveAudioFrame(AudioFrame* frame) {
+        if (frame == nullptr) return;
+        std::unique_lock lock(m_mutex);
+        if (frame->pos <= m_seek_pos) {
+            while (!m_audio_frame_stack.empty() && std::abs(frame->pos - m_audio_frame_stack.top()->pos) >= 0.1) {
+                delete m_audio_frame_stack.top();
+                m_audio_frame_stack.pop();
+            }
+            m_audio_frame_stack.push(frame);
+        } else {
+            delete frame;
+        }
+    }
+
+
+signals:
+    void stop();
+    void seekToPos(double sec, int flag);
+    void sendVideoFrame(VideoFrame* frame);
+    void sendAudioFrame(AudioFrame* frame);
+
+protected:
+    void run() override {
+        while (!m_stop.load()) {
+            m_mutex.lock();
+            if (m_seek_pos <= 0) {
+                emit stop();
+                m_mutex.unlock();
+                break;
+            }
+            if (!m_video_frame_loaded && !m_video_frame_stack.empty() &&
+                m_video_frame_stack.top()->pos + m_video_frame_stack.top()->duration >= m_seek_pos) {
+                m_video_frame_loaded = true;
+            }
+            if (!m_audio_frame_loaded && !m_audio_frame_stack.empty() &&
+                m_audio_frame_stack.top()->pos + m_audio_frame_stack.top()->duration >= m_seek_pos) {
+                m_audio_frame_loaded = true;
+            }
+            if (m_video_frame_loaded && m_audio_frame_loaded) {
+                while (!m_video_frame_stack.empty()) {
+                    emit sendVideoFrame(m_video_frame_stack.top());
+                    m_video_frame_stack.pop();
+                }
+                while (!m_audio_frame_stack.empty()) {
+                    emit sendAudioFrame(m_audio_frame_stack.top());
+                    m_audio_frame_stack.pop();
+                }
+                m_video_frame_loaded = false;
+                m_audio_frame_loaded = false;
+                m_seek_pos = m_cur_pos;
+                if (m_cur_pos > 0) m_cur_pos = std::max(0.0, m_cur_pos - 1);
+                emit seekToPos(m_cur_pos, 0);
+            }
+            m_mutex.unlock();
+        }
+    }
+
+private:
+    void reset(double sec) {
+        m_mutex.lock();
+        m_seek_pos = sec;
+        m_cur_pos = sec;
+        //QThread::msleep(1);
+        while (!m_video_frame_stack.empty()) {
+            delete m_video_frame_stack.top();
+            m_video_frame_stack.pop();
+        }
+        while (!m_audio_frame_stack.empty()) {
+            delete m_audio_frame_stack.top();
+            m_audio_frame_stack.pop();
+        }
+        m_video_frame_loaded = false;
+        m_audio_frame_loaded = false;
+        m_mutex.unlock();
+    }
+
+private:
+    std::mutex m_mutex;
+    QStack<VideoFrame*> m_video_frame_stack;
+    QStack<AudioFrame*> m_audio_frame_stack;
+
+    std::atomic_bool m_stop = false;
+    bool m_video_frame_loaded = false;
+    bool m_audio_frame_loaded = false;
+    double m_seek_pos = 0;
+    double m_cur_pos = 0;
+};
 
 template <typename T>
 class FrameQueue {
@@ -135,7 +265,7 @@ public:
     }
 
 private:
-    QMutex mutex;
+    std::mutex mutex;
     QQueue<T*> data;
 };
 

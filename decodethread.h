@@ -1,9 +1,6 @@
 #ifndef DECODETHREAD_H
 #define DECODETHREAD_H
 
-#include <QThread>
-#include <QMutex>
-
 #include "decodeutils.h"
 
 class DecodeThread : public QThread
@@ -15,8 +12,7 @@ public:
     DecodeThread();
 
     void Init(const QString& url);
-    void SeekToPos(double sec, int flag);
-    Thumbnail* GetThumbnail(int i);
+    Thumbnail* GetThumbnail(double pos);
 
     inline AVInfomation* GetAVInfomation() {
         return m_avInfomation;
@@ -30,6 +26,7 @@ public slots:
     void Exit();
     void Stop();
     void Resume();
+    void SeekToPos(double sec, int flag);
 
 signals:
     void sendVideoFrame(VideoFrame* frame);

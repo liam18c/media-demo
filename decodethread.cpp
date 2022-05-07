@@ -77,7 +77,7 @@ void DecodeThread::Init(const QString& url) {
             out_ch_layout.nb_channels = 2;
             out_ch_layout.u.mask = AV_CH_LAYOUT_STEREO;
             swr_alloc_set_opts2(&m_swr_ctx,
-                                &out_ch_layout, AV_SAMPLE_FMT_S16, 44100,
+                                &out_ch_layout, AV_SAMPLE_FMT_S16, m_audio_codec_ctx->sample_rate,
                                 &m_audio_codec_ctx->ch_layout, m_audio_codec_ctx->sample_fmt, m_audio_codec_ctx->sample_rate,
                                 0, 0);
             swr_init(m_swr_ctx);
@@ -95,7 +95,7 @@ void DecodeThread::Init(const QString& url) {
     fillInfomation();
     lock.unlock();
     //生成视频缩略图
-    genThumbnails();
+    //genThumbnails();
     emit initSucceed();
 }
 
@@ -105,7 +105,8 @@ void DecodeThread::run() {
     while (!m_exit.load()) {
         if (!m_stop.load()) {
             std::unique_lock lock(m_mutex);
-            if (av_read_frame(m_fmt_ctx, m_pkt) >= 0) {
+            ret = av_read_frame(m_fmt_ctx, m_pkt);
+            if (ret >= 0) {
                 //解码视频帧
                 if (m_pkt->stream_index == m_video_stream) {
                     ret = avcodec_send_packet(m_video_codec_ctx, m_pkt);
@@ -115,8 +116,8 @@ void DecodeThread::run() {
                         if (ret == AVERROR_EOF || ret == AVERROR(EAGAIN)) break;
 
                         VideoFrame* frame = decodeVideoFrame(m_frame);
+                        //qDebug("%f", frame->pos);
                         if (frame != nullptr) emit sendVideoFrame(frame);
-
                         av_frame_unref(m_frame);
                     }
                 } else if (m_pkt->stream_index == m_audio_stream) {
@@ -134,6 +135,8 @@ void DecodeThread::run() {
                 }
                 av_packet_unref(m_pkt);
             } else {
+                av_strerror(ret, m_errbuf, 1024);
+                //qDebug("%s", m_errbuf);
                 m_stop.store(true);
             }
         } else {
@@ -145,14 +148,11 @@ void DecodeThread::run() {
 
 void DecodeThread::SeekToPos(double sec, int flag) {
      if (m_exit.load()) return;
-     std::unique_lock lock(m_mutex);
      if (sec < 0 || sec > m_avInfomation->duration) return;
+     std::unique_lock lock(m_mutex);
      m_seek_pos = flag ? sec : 0;
-     //m_seek_pos = sec;
      int video_timestamp = floor(sec / av_q2d(m_fmt_ctx->streams[m_video_stream]->time_base));
      int ret = av_seek_frame(m_fmt_ctx, m_video_stream, video_timestamp, AVSEEK_FLAG_BACKWARD);
-     //int audio_timestamp = floor(sec / av_q2d(m_fmt_ctx->streams[m_audio_stream]->time_base));
-     //int ret = av_seek_frame(m_fmt_ctx, m_audio_stream, audio_timestamp, AVSEEK_FLAG_BACKWARD);
      if (ret < 0) {
          printf("Seek pos failed!\n");
          return;
@@ -161,9 +161,13 @@ void DecodeThread::SeekToPos(double sec, int flag) {
      avcodec_flush_buffers(m_audio_codec_ctx);
 }
 
-Thumbnail* DecodeThread::GetThumbnail(int i) {
-    if (i < 0 || i >= m_thumbnails.size()) return nullptr;
-    else return m_thumbnails[i];
+Thumbnail* DecodeThread::GetThumbnail(double pos) {
+    if (pos < 0 || pos > m_avInfomation->duration) return nullptr;
+    for (int i = 0; i < m_thumbnails.size(); i++) {
+        if (i == m_thumbnails.size() - 1) return m_thumbnails[i];
+        if (pos < m_thumbnails[i]->pos && i > 0) return m_thumbnails[i - 1];
+    }
+    return nullptr;
 }
 
 void DecodeThread::fillInfomation() {
@@ -171,7 +175,7 @@ void DecodeThread::fillInfomation() {
     m_avInfomation->width = m_video_codec_ctx->width;
     m_avInfomation->height = m_video_codec_ctx->height;
     m_avInfomation->channels = 2;
-    m_avInfomation->sample_rate = 44100;
+    m_avInfomation->sample_rate = m_audio_codec_ctx->sample_rate;
     m_avInfomation->sample_size = 16;
 }
 
@@ -206,41 +210,44 @@ void DecodeThread::release() {
         avformat_free_context(m_fmt_ctx);
         m_fmt_ctx = nullptr;
     }
+    for (int i = 0; i < m_thumbnails.size(); i++) {
+        delete m_thumbnails[i];
+    }
     m_thumbnails.clear();
     m_close = true;
     m_mutex.unlock();
-    qDebug("Released succeed!");
 }
 
 VideoFrame* DecodeThread::decodeVideoFrame(AVFrame* frame) {
-    double pos = m_frame->best_effort_timestamp * av_q2d(m_fmt_ctx->streams[m_video_stream]->time_base);
+    double pos = frame->best_effort_timestamp * av_q2d(m_fmt_ctx->streams[m_video_stream]->time_base);
     if (pos >= m_seek_pos) {
-        uint8_t* data = yuvToRGB24(m_frame, m_frame->width, m_frame->height);
-        VideoFrame* frame = new VideoFrame(data, m_frame->width, m_frame->height);
-        double pos = m_frame->pts * av_q2d(m_fmt_ctx->streams[m_video_stream]->time_base);
+        uint8_t* data = yuvToRGB24(frame, frame->width, frame->height);
+        VideoFrame* vframe = new VideoFrame(data, frame->width, frame->height);
+        double pos = frame->pts * av_q2d(m_fmt_ctx->streams[m_video_stream]->time_base);
         double duration = r2d(1, m_avInfomation->frame_rate);
-        duration += m_frame->repeat_pict / (2 * m_avInfomation->frame_rate);
-        frame->SetTime(pos, duration);
-        return frame;
+        duration += frame->repeat_pict / (2 * m_avInfomation->frame_rate);
+        vframe->SetTime(pos, duration);
+        return vframe;
     } else {
         return nullptr;
     }
 }
 
 AudioFrame* DecodeThread::decodeAudioFrame(AVFrame* frame) {
-    double pos = m_frame->pts * av_q2d(m_fmt_ctx->streams[m_audio_stream]->time_base);
+    double pos = frame->pts * av_q2d(m_fmt_ctx->streams[m_audio_stream]->time_base);
     if (pos >= m_seek_pos) {
 
         uint8_t* data;
-        int out_samples = av_rescale_rnd(m_frame->nb_samples, 44100, m_frame->sample_rate, AV_ROUND_UP);
+        int out_samples = av_rescale_rnd(frame->nb_samples, m_avInfomation->sample_rate, frame->sample_rate, AV_ROUND_UP);
         av_samples_alloc(&data, NULL, 2, out_samples, AV_SAMPLE_FMT_S16, 0);
-        out_samples = swr_convert(m_swr_ctx, &data, out_samples, (const uint8_t**)m_frame->data, m_frame->nb_samples);
+        out_samples = swr_convert(m_swr_ctx, &data, out_samples, (const uint8_t**)frame->data, frame->nb_samples);
 
         int out_buffer_size = av_samples_get_buffer_size(0, 2, out_samples, AV_SAMPLE_FMT_S16, 1);
-        AudioFrame* frame = new AudioFrame(data, out_samples, out_buffer_size, 2);
-        double duration = double(out_samples) / 44100;
-        frame->SetTime(pos, duration);
-        return frame;
+        //int out_buffer_size = 2 * 2 * out_samples;
+        AudioFrame* aframe = new AudioFrame(data, out_samples, out_buffer_size, 2);
+        double duration = double(out_samples) / m_avInfomation->sample_rate;
+        aframe->SetTime(pos, duration);
+        return aframe;
     } else {
         return nullptr;
     }
@@ -270,7 +277,7 @@ void DecodeThread::genThumbnails() {
             }
         }
         av_packet_unref(m_pkt);
-        pos += 10;
+        pos += 5;
     }
 }
 

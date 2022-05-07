@@ -2,6 +2,7 @@
 #define DECODEUTILS_H
 
 #include <QByteArray>
+#include <QThread>
 
 #include "sonic.h"
 
