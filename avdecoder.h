@@ -179,7 +179,7 @@ protected:
                 m_audio_frame_stack.top()->pos + m_audio_frame_stack.top()->duration >= m_seek_pos) {
                 m_audio_frame_loaded = true;
             }
-            if (m_video_frame_loaded && m_audio_frame_loaded) {
+            if (m_video_frame_loaded || m_audio_frame_loaded) {
                 while (!m_video_frame_stack.empty()) {
                     emit sendVideoFrame(m_video_frame_stack.top());
                     m_video_frame_stack.pop();

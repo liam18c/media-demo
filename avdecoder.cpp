@@ -44,6 +44,11 @@ void AVDecoder::Close() {
     emit stopInverter();
     m_play_mode = 1;
     m_play_speed = 1;
+    m_seek_pos = 0;
+    m_video_clock = 0;
+    m_last_video_delay = 0;
+    m_audio_clock = 0;
+    m_last_audio_delay = 0;
     QThread::msleep(10);
     std::thread t(&AVDecoder::reset, this);
     t.detach();
@@ -107,7 +112,6 @@ VideoFrame* AVDecoder::GetVideoFrame() {
 
 AudioFrame* AVDecoder::GetAudioFrame() {
     AudioFrame* frame = m_audio_frame_queue->pop();
-
     if (frame != nullptr) {
         //错误帧
         if (frame->pos < 0) {
