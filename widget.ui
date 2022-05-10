@@ -13,7 +13,7 @@
   <property name="windowTitle">
    <string>Widget</string>
   </property>
-  <widget class="QPushButton" name="pushButton">
+  <widget class="QPushButton" name="start">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -23,10 +23,10 @@
     </rect>
    </property>
    <property name="text">
-    <string>PushButton</string>
+    <string>start</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="exit">
+  <widget class="QPushButton" name="stop">
    <property name="geometry">
     <rect>
      <x>10</x>
@@ -36,7 +36,7 @@
     </rect>
    </property>
    <property name="text">
-    <string>exit</string>
+    <string>stop</string>
    </property>
   </widget>
   <widget class="QPushButton" name="resume">
@@ -65,7 +65,7 @@
     <string>TextLabel</string>
    </property>
   </widget>
-  <widget class="QPushButton" name="show">
+  <widget class="QPushButton" name="close">
    <property name="geometry">
     <rect>
      <x>0</x>
@@ -75,7 +75,46 @@
     </rect>
    </property>
    <property name="text">
-    <string>show</string>
+    <string>close</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="setspeed">
+   <property name="geometry">
+    <rect>
+     <x>10</x>
+     <y>390</y>
+     <width>111</width>
+     <height>41</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>setspeed</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="setpos">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>460</y>
+     <width>92</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>setpos</string>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="setmode">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>510</y>
+     <width>92</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>setmode</string>
    </property>
   </widget>
  </widget>

@@ -13,11 +13,14 @@ AVDecoder::AVDecoder()
     connect(m_decode_thread, &DecodeThread::initSucceed, this, &AVDecoder::onInit);
 
     connect(m_inverter, &Inverter::seekToPos, m_decode_thread, &DecodeThread::SeekToPos);
+    connect(this, &AVDecoder::seekToPos, m_decode_thread, &DecodeThread::SeekToPos);
 
     connect(this, &AVDecoder::stop, m_decode_thread, &DecodeThread::Stop);
     connect(this, &AVDecoder::resume, m_decode_thread, &DecodeThread::Resume);
     connect(this, &AVDecoder::exit, m_decode_thread, &DecodeThread::Exit);
 
+    connect(this, &AVDecoder::stopInverter, m_inverter, &Inverter::Stop);
+    connect(this, &AVDecoder::resumeInverter, m_inverter, &Inverter::Resume);
 }
 
 AVDecoder::~AVDecoder() {
@@ -36,11 +39,19 @@ void AVDecoder::Open(QString url) {
 
 void AVDecoder::Close() {
     if (m_state == AVState::CLOSE) return;
-    emit exit();
     m_state = AVState::CLOSE;
-    m_inverter->Stop();
+    emit exit();
+    emit stopInverter();
+    m_play_mode = 1;
+    m_play_speed = 1;
+    m_seek_pos = 0;
+    m_video_clock = 0;
+    m_last_video_delay = 0;
+    m_audio_clock = 0;
+    m_last_audio_delay = 0;
     QThread::msleep(10);
-    reset();
+    std::thread t(&AVDecoder::reset, this);
+    t.detach();
     if (m_sonic_stream) {
         sonicDestroyStream(m_sonic_stream);
         m_sonic_stream = nullptr;
@@ -49,19 +60,27 @@ void AVDecoder::Close() {
 
 void AVDecoder::SetPos(double sec, int flag) {
     m_state = AVDecoder::STOP;
-    emit stop();
-    m_inverter->Stop();
+    int mode = m_play_mode.load();
     m_seek_pos = sec;
-    m_decode_thread->SeekToPos(sec, flag);
-    m_inverter->Resume(sec);
-    reset();
+    if (mode == 1) {
+        emit stop();
+        emit seekToPos(sec, flag);
+    } else {
+        m_inverter->Stop();
+        emit resumeInverter(sec);
+    }
     emit resume();
+    std::thread t(&AVDecoder::reset, this);
+    t.detach();
+    reset();
     m_state = AVDecoder::START;
 }
 
 VideoFrame* AVDecoder::GetVideoFrame() {
     VideoFrame* frame = m_video_frame_queue->pop();
-    if (m_video_frame_queue->size() == m_video_buffer_lower_size) {
+    //倒放则将阈值提高
+    int threshold = m_play_mode.load() == 1 ? m_video_buffer_lower_size : 60;
+    if (m_video_frame_queue->size() == threshold) {
         emit resume();
     }
 
@@ -93,7 +112,6 @@ VideoFrame* AVDecoder::GetVideoFrame() {
 
 AudioFrame* AVDecoder::GetAudioFrame() {
     AudioFrame* frame = m_audio_frame_queue->pop();
-
     if (frame != nullptr) {
         //错误帧
         if (frame->pos < 0) {
@@ -131,6 +149,7 @@ void AVDecoder::SetPlayMode(int flag) {
         disconnect(m_decode_thread, &DecodeThread::sendAudioFrame, m_inverter, &Inverter::receiveAudioFrame);
         disconnect(m_inverter, &Inverter::sendVideoFrame, this, &AVDecoder::receiveVideoFrame);
         disconnect(m_inverter, &Inverter::sendAudioFrame, this, &AVDecoder::receiveAudioFrame);
+        disconnect(m_inverter, &Inverter::stop, m_decode_thread, &DecodeThread::Stop);
     } else {
         disconnect(m_decode_thread, &DecodeThread::sendVideoFrame, this, &AVDecoder::receiveVideoFrame);
         disconnect(m_decode_thread, &DecodeThread::sendAudioFrame, this, &AVDecoder::receiveAudioFrame);
@@ -138,12 +157,14 @@ void AVDecoder::SetPlayMode(int flag) {
         connect(m_decode_thread, &DecodeThread::sendAudioFrame, m_inverter, &Inverter::receiveAudioFrame);
         connect(m_inverter, &Inverter::sendVideoFrame, this, &AVDecoder::receiveVideoFrame);
         connect(m_inverter, &Inverter::sendAudioFrame, this, &AVDecoder::receiveAudioFrame);
+        connect(m_inverter, &Inverter::stop, m_decode_thread, &DecodeThread::Stop);
     }
 }
 
 void AVDecoder::SetPlaySpeed(double speed) {
     m_mutex.lock();
     if (speed > 0 && speed <= 4) m_play_speed = speed;
+    if (m_play_mode.load() == -1) m_play_speed = std::min(m_play_speed, 2.0);
     m_mutex.unlock();
 }
 
@@ -191,7 +212,9 @@ void AVDecoder::scaleAudioSpeed(AudioFrame* frame) {
 void AVDecoder::receiveVideoFrame(VideoFrame* frame) {
     if (m_state == AVDecoder::START) {
         m_video_frame_queue->push(frame);
-        if (m_video_frame_queue->size() == m_video_buffer_upper_size) {
+        //倒放则将阈值提高
+        int threshold = m_play_mode.load() == 1 ? m_video_buffer_upper_size : 75;
+        if (m_video_frame_queue->size() == threshold) {
             emit stop();
         }
     }

@@ -45,6 +45,7 @@ void VideoPlayerThread::Init(AVDecoder* decoder,void* winId){
 void VideoPlayerThread::Start(){
     m_exit.store(false);
     m_stop.store(false);
+    m_play_mode=1;
     this->start();
     m_audio_player->Start();
 }
@@ -60,11 +61,16 @@ void VideoPlayerThread::Stop(){
 }
 
 void VideoPlayerThread::Close(){
+    m_play_mode=1;
     m_stop.store(true);
     m_exit.store(true);
     release();
     m_audio_player->Close();
     SDL_Quit();
+}
+
+void VideoPlayerThread::SetPlayMode(int flag){
+    m_play_mode=flag;
 }
 
 VideoFrame* VideoPlayerThread::GetCurrentFrame(){
@@ -90,7 +96,8 @@ void VideoPlayerThread::run(){
             SDL_RenderPresent(m_sdl_render);
             SDL_Delay(1000*videoFrame->duration);
             m_mutex.unlock();
-            if(videoFrame->pos+videoFrame->duration>=m_information->duration-0.010){
+            if((m_play_mode==1&&videoFrame->pos+videoFrame->duration>=m_information->duration-0.1)
+                    ||(m_play_mode==-1&&videoFrame->pos-videoFrame->duration<=0.1)){
                 //可捕获该信号作为播放结束的标志
                 emit PlayFinish();
             }

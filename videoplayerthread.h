@@ -21,6 +21,7 @@ public:
     void Stop();
     void Close();
 
+    void SetPlayMode(int flag);
     VideoFrame* GetCurrentFrame();
 
 signals:
@@ -41,6 +42,7 @@ private:
     QMutex m_mutex;
     std::atomic_bool m_exit = false;
     std::atomic_bool m_stop = false;
+    int m_play_mode;
 
     AVDecoder* m_decoder;
     AudioPlayer* m_audio_player;

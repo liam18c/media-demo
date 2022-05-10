@@ -20,14 +20,24 @@ public:
         return &instance;
     }
 
+    //指定播放的文件地址与绑定的label的winId
     void Start(const QString& url,void*winId);
+    //当前位置播放
     void Resume();
+    //当前位置暂停
     void Stop();
+    //主动关闭，视频播放完成则自动结束，不需主动关闭
     void Close();
+    //播放模式，1代表顺序播放，-1代表倒放
     void SetPlayMode(int flag);
+    //设置播放速度：0~4
     void SetPlaySpeed(double speed);
-    void SetPos(double sec,int flag);
+    //快进或后退
+    void SetPos(double sec);
+    //获取音视频信息
     AVInfomation* GetAVInformation();
+    //获取当前播放帧信息
+    VideoFrame* GetCurrentFrame();
 
     void* operator new(size_t)=delete;
 

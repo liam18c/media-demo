@@ -62,6 +62,8 @@ void AVPlayer::Close(){
         return;
     }
     m_state=CLOSE;
+    m_play_mode=1;
+    m_play_speed=1.0;
     m_video_player_thread->Close();
     m_decoder->Close();
     mutex.unlock();
@@ -79,10 +81,9 @@ void AVPlayer::SetPlayMode(int flag){
         mutex.unlock();
         return;
     }
-    m_video_player_thread->Stop();
     m_decoder->SetPos(frame->pos,0);
     m_decoder->SetPlayMode(flag);
-    m_video_player_thread->Resume();
+    m_video_player_thread->SetPlayMode(flag);
     mutex.unlock();
 }
 
@@ -93,17 +94,13 @@ void AVPlayer::SetPlaySpeed(double speed){
         return;
     }
     m_play_speed=speed;
-    m_video_player_thread->Stop();
     m_decoder->SetPlaySpeed(speed);
-    m_video_player_thread->Resume();
     mutex.unlock();
 }
 
-void AVPlayer::SetPos(double sec,int flag){
+void AVPlayer::SetPos(double sec){
     mutex.lock();
-    m_video_player_thread->Stop();
-    m_decoder->SetPos(sec,flag);
-    m_video_player_thread->Resume();
+    m_decoder->SetPos(sec,1);
     mutex.unlock();
 }
 
@@ -117,11 +114,22 @@ AVInfomation* AVPlayer::GetAVInformation(){
     mutex.unlock();
     return ret;
 }
+
+VideoFrame* AVPlayer::GetCurrentFrame(){
+    mutex.lock();
+    if(m_state==CLOSE){
+        mutex.unlock();
+        return nullptr;
+    }
+    VideoFrame* ret=m_video_player_thread->GetCurrentFrame();
+    mutex.unlock();
+    return ret;
+}
+
 //slots
 void AVPlayer::GetDecoderReady(){
-    //接收 m_decoder已初始化完成并启动解码 信号
+    //接收 m_decoder已启动解码 信号
     m_video_player_thread->Init(m_decoder,m_winId);
-    printf("videoPlayer init succeed!\n");
     m_video_player_thread->Start();
     //可捕获该信号作为播放开始的标志
     emit PlayStart();

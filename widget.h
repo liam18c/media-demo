@@ -19,13 +19,19 @@ public:
 
 
 private slots:
-    void on_pushButton_clicked();
+    void on_start_clicked();
 
-    void on_exit_clicked();
+    void on_stop_clicked();
 
     void on_resume_clicked();
 
-    void on_show_clicked();
+    void on_close_clicked();
+
+    void on_setspeed_clicked();
+
+    void on_setpos_clicked();
+
+    void on_setmode_clicked();
 
 private:
     Ui::Widget *ui;
