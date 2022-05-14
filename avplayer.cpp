@@ -17,7 +17,6 @@ AVPlayer::AVPlayer()
 }
 
 AVPlayer::~AVPlayer(){
-
 }
 
 void AVPlayer::Start(const QString& url,void* winId){
@@ -30,6 +29,7 @@ void AVPlayer::Start(const QString& url,void* winId){
     m_state=START;
     m_winId=winId;
     m_decoder->Open(url);
+    AudioPlayer::SetVolume(1.0);
     mutex.unlock();
 }
 
@@ -81,8 +81,8 @@ void AVPlayer::SetPlayMode(int flag){
         mutex.unlock();
         return;
     }
-    m_decoder->SetPos(frame->pos,0);
     m_decoder->SetPlayMode(flag);
+    m_decoder->SetPos(frame->pos,0);
     m_video_player_thread->SetPlayMode(flag);
     mutex.unlock();
 }
@@ -101,6 +101,12 @@ void AVPlayer::SetPlaySpeed(double speed){
 void AVPlayer::SetPos(double sec){
     mutex.lock();
     m_decoder->SetPos(sec,1);
+    mutex.unlock();
+}
+
+void AVPlayer::SetVolume(double volume){
+    mutex.lock();
+    AudioPlayer::SetVolume(volume);
     mutex.unlock();
 }
 

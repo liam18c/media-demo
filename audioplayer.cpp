@@ -3,6 +3,8 @@
 
 AudioPlayer::AudioPlayer(){}
 
+double AudioPlayer::m_volume=1.0;
+
 void AudioPlayer::Init(AVDecoder* decoder){
     this->m_decoder=decoder;
     m_information=m_decoder->GetAVInfomation();
@@ -61,11 +63,14 @@ void AudioPlayer::Stop(){
 
 void AudioPlayer::Close(){
     SDL_PauseAudio(1);
+    SDL_CloseAudio();
     free(m_extra_data);
     m_extra_data=nullptr;
-    SDL_CloseAudio();
 }
 
+void AudioPlayer::SetVolume(double volume){
+    m_volume=volume;
+}
 
 void AudioPlayer::fillAudioBuffer(void *userdata, Uint8 * stream, int len)
 {
@@ -116,7 +121,7 @@ void AudioPlayer::fillAudioBuffer(void *userdata, Uint8 * stream, int len)
             }
     }
 
-    SDL_MixAudio(stream, data, size, SDL_MIX_MAXVOLUME);
+    SDL_MixAudio(stream, data, size, SDL_MIX_MAXVOLUME*m_volume);
 }
 
 void AudioPlayer::release(){

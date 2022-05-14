@@ -52,19 +52,6 @@
     <string>resume</string>
    </property>
   </widget>
-  <widget class="QLabel" name="label">
-   <property name="geometry">
-    <rect>
-     <x>170</x>
-     <y>0</y>
-     <width>1571</width>
-     <height>791</height>
-    </rect>
-   </property>
-   <property name="text">
-    <string>TextLabel</string>
-   </property>
-  </widget>
   <widget class="QPushButton" name="close">
    <property name="geometry">
     <rect>
@@ -115,6 +102,29 @@
    </property>
    <property name="text">
     <string>setmode</string>
+   </property>
+  </widget>
+  <widget class="QWidget" name="widget" native="true">
+   <property name="geometry">
+    <rect>
+     <x>230</x>
+     <y>80</y>
+     <width>1001</width>
+     <height>501</height>
+    </rect>
+   </property>
+  </widget>
+  <widget class="QPushButton" name="setVolume">
+   <property name="geometry">
+    <rect>
+     <x>20</x>
+     <y>560</y>
+     <width>92</width>
+     <height>29</height>
+    </rect>
+   </property>
+   <property name="text">
+    <string>setVolume</string>
    </property>
   </widget>
  </widget>

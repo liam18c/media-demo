@@ -16,6 +16,7 @@ public:
     void Resume();
     void Stop();
     void Close();
+    static void SetVolume(double volume);
 
 private:
     void release();
@@ -26,11 +27,10 @@ private:
 
     uint8_t* m_extra_data=nullptr;
     int m_extra_len=-1;
+    static double m_volume;
 
     AVInfomation* m_information;
-
     AVDecoder* m_decoder=nullptr;
 };
-
 
 #endif // AUDIOPLAYER_H

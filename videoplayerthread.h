@@ -32,6 +32,7 @@ protected:
 
 private:
     void release();
+    void sdlResize();
 
 private:
     SDL_Window* m_sdl_window;

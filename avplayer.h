@@ -34,6 +34,8 @@ public:
     void SetPlaySpeed(double speed);
     //快进或后退
     void SetPos(double sec);
+    //设置音量 0~1
+    void SetVolume(double volume);
     //获取音视频信息
     AVInfomation* GetAVInformation();
     //获取当前播放帧信息

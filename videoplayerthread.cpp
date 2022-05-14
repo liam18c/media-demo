@@ -34,10 +34,12 @@ void VideoPlayerThread::Init(AVDecoder* decoder,void* winId){
       printf("fail to create texture:%s\n",SDL_GetError());
       return;
     }
+    int width,height;
+    SDL_GetWindowSize(m_sdl_window, &width, &height);
     m_sdl_rect.x = 0;
     m_sdl_rect.y = 0;
-    m_sdl_rect.w = m_information->width;
-    m_sdl_rect.h = m_information->height;
+    m_sdl_rect.w = width;
+    m_sdl_rect.h = height;
 }
 
 
@@ -64,9 +66,8 @@ void VideoPlayerThread::Close(){
     m_play_mode=1;
     m_stop.store(true);
     m_exit.store(true);
-    release();
     m_audio_player->Close();
-    SDL_Quit();
+    release();
 }
 
 void VideoPlayerThread::SetPlayMode(int flag){
@@ -77,10 +78,24 @@ VideoFrame* VideoPlayerThread::GetCurrentFrame(){
     return m_videoFrame;
 }
 
+void VideoPlayerThread::sdlResize(){
+    int width,height;
+    SDL_GetWindowSize(m_sdl_window, &width, &height);
+    if(m_sdl_rect.w!=width||m_sdl_rect.h!=height){
+        SDL_DestroyRenderer(m_sdl_render);
+        m_sdl_render = SDL_CreateRenderer(m_sdl_window, -1, 0);
+        SDL_DestroyTexture(m_sdl_texture);
+        m_sdl_texture=SDL_CreateTexture(m_sdl_render,SDL_PIXELFORMAT_RGB24,SDL_TEXTUREACCESS_STREAMING,m_information->width,m_information->height);
+        m_sdl_rect.w=width;
+        m_sdl_rect.h=height;
+        int ret=SDL_RenderSetViewport(m_sdl_render, &m_sdl_rect);
+        printf("%d %d %d\n",width,height,ret);
+    }
+}
 
 void VideoPlayerThread::run(){
     while(!m_exit.load()){
-        while(!m_stop.load()){
+        if(!m_stop.load()){
             m_mutex.lock();
             //读取rgb数据
             VideoFrame* videoFrame=m_decoder->GetVideoFrame();
@@ -88,8 +103,10 @@ void VideoPlayerThread::run(){
                 m_mutex.unlock();
                 continue;
             }
+            delete m_videoFrame;
             m_videoFrame=videoFrame;
             //更新和播放
+            sdlResize();
             SDL_UpdateTexture(m_sdl_texture, NULL, videoFrame->data, (videoFrame->width)*3);
             SDL_RenderClear(m_sdl_render);
             SDL_RenderCopy(m_sdl_render, m_sdl_texture, NULL, &m_sdl_rect);
@@ -101,6 +118,9 @@ void VideoPlayerThread::run(){
                 //可捕获该信号作为播放结束的标志
                 emit PlayFinish();
             }
+        }
+        else{
+            QThread::msleep(1);
         }
     }
 }

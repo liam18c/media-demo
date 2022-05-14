@@ -33,6 +33,8 @@ private slots:
 
     void on_setmode_clicked();
 
+    void on_setVolume_clicked();
+
 private:
     Ui::Widget *ui;
     AVPlayer* player = nullptr;
