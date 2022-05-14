@@ -52,7 +52,13 @@
   void SetPos(double sec)
   ```
 
-  设置播放位置，sec以秒作单位，flag为
+  设置播放位置，sec以秒作单位
+
+- ```c++
+  void SetVolume(double volume)
+  ```
+
+  设置音量范围 0~1
 
 - ```c++
   AVInfomation* GetAVInformation()
