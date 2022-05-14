@@ -12,37 +12,37 @@
 
 前端可完成以下调用
 
-- ```
+- ```c++
   void Start(const QString& url,void*winId)
   ```
 
   指定播放的文件地址与绑定的label的winId
 
-- ```
+- ```c++
   void Resume()
   ```
 
   暂停后从当前位置重启，仅针对播放过程，解码过程根据队列长度独立控制
 
-- ```
+- ```c++
   void Stop();
   ```
 
   暂停播放，仅针对播放过程
 
-- ```
+- ```c++
   void Close();
   ```
 
   主动关闭视频播放，对于播放完成则内部自动调用该函数，不需要主动关闭
 
-- ```
+- ```c++
   void SetPlayMode(int flag)
   ```
 
   设置播放的模式，即正反，flag分别取1或-1
 
-- ```
+- ```c++
   void SetPlaySpeed(double speed)
   ```
 
