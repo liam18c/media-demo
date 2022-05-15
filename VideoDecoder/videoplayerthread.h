@@ -1,0 +1,56 @@
+﻿#ifndef VIDEOPLAYERTHREAD_H
+#define VIDEOPLAYERTHREAD_H
+
+#include <QThread>
+#include <QMutex>
+#include "avdecoder.h"
+#include "audioplayer.h"
+
+#include <SDL.h>
+
+
+class VideoPlayerThread : public QThread
+{
+    Q_OBJECT
+public:
+    VideoPlayerThread();
+    void Init(AVDecoder*decoder,void*winId);
+
+    void Start();
+    void Resume();
+    void Stop();
+    void Close();
+
+    void SetPlayMode(int flag);
+    VideoFrame* GetCurrentFrame();
+
+signals:
+    void PlayFinish();
+    void VideoPositionChange(qint64);
+
+protected:
+    void run() override;
+
+private:
+    void release();
+    void sdlResize();
+
+private:
+    SDL_Window* m_sdl_window;
+    SDL_Renderer* m_sdl_render;
+    SDL_Texture* m_sdl_texture;
+    SDL_Rect m_sdl_rect;
+
+    QMutex m_mutex;
+    std::atomic_bool m_exit = false;
+    std::atomic_bool m_stop = false;
+    int m_play_mode;
+    int m_screen_width;
+    int m_screen_height;
+
+    AVDecoder* m_decoder;
+    AVInfomation*m_information;
+    VideoFrame* m_videoFrame;
+};
+
+#endif // VIDEOPLAYERTHREAD_H
