@@ -51,7 +51,7 @@ void Widget::on_close_clicked()
 
 void Widget::on_setspeed_clicked()
 {
-    player->SetPlaySpeed(0.5);
+    player->SetPlaySpeed(2.5);
 }
 
 

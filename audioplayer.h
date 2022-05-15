@@ -30,7 +30,7 @@ private:
 private:
     SDL_AudioSpec m_sdl_audio_spec;
 
-    uint8_t* m_extra_data=nullptr;
+    AudioFrame* m_audio_frame=nullptr;
     int m_extra_len=-1;
     static double m_volume;
     int m_play_mode;
