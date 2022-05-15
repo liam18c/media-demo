@@ -26,6 +26,7 @@ public:
 
 signals:
     void PlayFinish();
+    void VideoPositionChange(qint64);
 
 protected:
     void run() override;
@@ -44,9 +45,10 @@ private:
     std::atomic_bool m_exit = false;
     std::atomic_bool m_stop = false;
     int m_play_mode;
+    int m_screen_width;
+    int m_screen_height;
 
     AVDecoder* m_decoder;
-    AudioPlayer* m_audio_player;
     AVInfomation*m_information;
     VideoFrame* m_videoFrame;
 };

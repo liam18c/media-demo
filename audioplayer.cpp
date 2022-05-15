@@ -21,22 +21,17 @@ void AudioPlayer::Init(AVDecoder* decoder){
     }
     /*** 初始化初始化SDL_AudioSpec结构体 ***/
     m_sdl_audio_spec.freq = m_information->sample_rate;
-
     // 音频数据的格式
     m_sdl_audio_spec.format = AUDIO_S16SYS;
-
     // 声道数。例如单声道取值为1，立体声取值为2
     m_sdl_audio_spec.channels = m_information->channels;
-
     // 设置静音的值
     m_sdl_audio_spec.silence = 0;
-
     // 音频缓冲区中的采样个数，要求必须是2的n次方
     m_sdl_audio_spec.samples = 2048;
-
     // 填充音频缓冲区的回调函数
     m_sdl_audio_spec.callback = fillAudioBuffer;
-
+    // 用户数据
     m_sdl_audio_spec.userdata=this;
 
     ret=SDL_OpenAudio(&m_sdl_audio_spec, nullptr);
@@ -66,6 +61,10 @@ void AudioPlayer::Close(){
     SDL_CloseAudio();
     free(m_extra_data);
     m_extra_data=nullptr;
+}
+
+void AudioPlayer::SetPlayMode(int flag){
+    m_play_mode=flag;
 }
 
 void AudioPlayer::SetVolume(double volume){
@@ -106,7 +105,6 @@ void AudioPlayer::fillAudioBuffer(void *userdata, Uint8 * stream, int len)
             AudioFrame* audio_frame=m_audio_player->m_decoder->GetAudioFrame();
             if(audio_frame==nullptr)continue;
             uint8_t* audio_data=audio_frame->data;
-
             if(audio_frame->out_buffer_size>=len){
                 memcpy(cur_pos,audio_data,len);
                 audio_data+=len;
@@ -119,11 +117,16 @@ void AudioPlayer::fillAudioBuffer(void *userdata, Uint8 * stream, int len)
                 cur_pos+=audio_frame->out_buffer_size;
                 len-=audio_frame->out_buffer_size;
             }
+            if(m_audio_player->m_information->type&AVType::TYPEAUDIO
+                    &&!(m_audio_player->m_information->type&AVType::TYPEVIDEO)){
+                if((m_audio_player->m_play_mode==1&&audio_frame->pos+audio_frame->duration>=m_audio_player->m_information->duration-0.1)
+                        ||(m_audio_player->m_play_mode==-1&&audio_frame->pos-audio_frame->duration<=0.1)){
+                    //可捕获该信号作为播放结束的标志
+                    emit m_audio_player->PlayFinish();
+                }
+            }
+
     }
 
     SDL_MixAudio(stream, data, size, SDL_MIX_MAXVOLUME*m_volume);
-}
-
-void AudioPlayer::release(){
-
 }

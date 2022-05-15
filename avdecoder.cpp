@@ -21,6 +21,9 @@ AVDecoder::AVDecoder()
 
     connect(this, &AVDecoder::stopInverter, m_inverter, &Inverter::Stop);
     connect(this, &AVDecoder::resumeInverter, m_inverter, &Inverter::Resume);
+    connect(m_decode_thread, &DecodeThread::urlError, this, [&](){
+        emit this->urlError();
+    });
 }
 
 AVDecoder::~AVDecoder() {
@@ -35,6 +38,7 @@ void AVDecoder::Open(QString url) {
     m_decode_thread->Init(m_url);
     m_sample_rate = m_decode_thread->GetAVInfomation()->sample_rate;
     m_sonic_stream = sonicCreateStream(m_sample_rate, 2);
+
 }
 
 void AVDecoder::Close() {

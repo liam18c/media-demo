@@ -17,6 +17,8 @@ public:
     Widget(QWidget *parent = nullptr);
     ~Widget();
 
+public slots:
+    void playnext();
 
 private slots:
     void on_start_clicked();

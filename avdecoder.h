@@ -1,4 +1,4 @@
-#ifndef AVDECODER_H
+﻿#ifndef AVDECODER_H
 #define AVDECODER_H
 
 #include <QQueue>
@@ -52,6 +52,7 @@ public:
 signals:
     //解码环境初始化成功发送该信号，可捕获
     void Ready();
+    void urlError();
 
 private slots:
     void receiveVideoFrame(VideoFrame* frame);

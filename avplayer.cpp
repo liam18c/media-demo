@@ -4,16 +4,24 @@ AVPlayer::AVPlayer()
 {
     mutex.lock();
     m_state=CLOSE;
+    m_av_type=AVType::TYPENONE;
     m_play_mode=1;
     m_play_speed=1.0;
     mutex.unlock();
 
     m_decoder=AVDecoder::GetInstance();
     m_video_player_thread=new VideoPlayerThread();
+    m_audio_player=new AudioPlayer();
 
     connect(m_decoder,&AVDecoder::Ready,this,&AVPlayer::GetDecoderReady);
     connect(m_video_player_thread,&VideoPlayerThread::PlayFinish,this,&AVPlayer::GetPlayFinish);
-
+    connect(m_audio_player,&AudioPlayer::PlayFinish,this,&AVPlayer::GetPlayFinish);
+    connect(m_video_player_thread,&VideoPlayerThread::VideoPositionChange,this,[&](qint64 pos){
+        emit this->VideoPositionChange(pos);
+    });
+    connect(m_decoder,&AVDecoder::urlError,this,[&](){
+        emit this->urlError();
+    });
 }
 
 AVPlayer::~AVPlayer(){
@@ -29,7 +37,7 @@ void AVPlayer::Start(const QString& url,void* winId){
     m_state=START;
     m_winId=winId;
     m_decoder->Open(url);
-    AudioPlayer::SetVolume(1.0);
+    emit PlayStateChange(m_state);
     mutex.unlock();
 }
 
@@ -40,7 +48,13 @@ void AVPlayer::Resume(){
         return;
     }
     m_state=START;
-    m_video_player_thread->Resume();
+    if(m_av_type&AVType::TYPEVIDEO){
+        m_video_player_thread->Resume();
+    }
+    if(m_av_type&AVType::TYPEAUDIO){
+        m_audio_player->Resume();
+    }
+    emit PlayStateChange(m_state);
     mutex.unlock();
 }
 
@@ -51,7 +65,13 @@ void AVPlayer::Stop(){
         return;
     }
     m_state=STOP;
-    m_video_player_thread->Stop();
+    if(m_av_type&AVType::TYPEVIDEO){
+        m_video_player_thread->Stop();
+    }
+    if(m_av_type&AVType::TYPEAUDIO){
+        m_audio_player->Stop();
+    }
+    emit PlayStateChange(m_state);
     mutex.unlock();
 }
 
@@ -61,12 +81,21 @@ void AVPlayer::Close(){
         mutex.unlock();
         return;
     }
+
+    if(m_av_type&AVType::TYPEVIDEO){
+        m_video_player_thread->Close();
+    }
+    if(m_av_type&AVType::TYPEAUDIO){
+        m_audio_player->Close();
+    }
+    m_decoder->Close();
     m_state=CLOSE;
     m_play_mode=1;
     m_play_speed=1.0;
-    m_video_player_thread->Close();
-    m_decoder->Close();
+    AudioPlayer::SetVolume(1.0);
+    m_av_type=AVType::TYPENONE;
     mutex.unlock();
+    emit PlayStateChange(m_state);
 }
 
 void AVPlayer::SetPlayMode(int flag){
@@ -132,11 +161,27 @@ VideoFrame* AVPlayer::GetCurrentFrame(){
     return ret;
 }
 
+AVPlayer::AVPlayerState AVPlayer::GetPlayState() const
+{
+    return m_state;
+}
+
 //slots
 void AVPlayer::GetDecoderReady(){
     //接收 m_decoder已启动解码 信号
-    m_video_player_thread->Init(m_decoder,m_winId);
-    m_video_player_thread->Start();
+    m_av_type|=m_decoder->GetAVInfomation()->type;
+    if(m_av_type&AVType::TYPEVIDEO){
+        m_video_player_thread->Init(m_decoder,m_winId);
+    }
+    if(m_av_type&AVType::TYPEAUDIO){
+        m_audio_player->Init(m_decoder);
+    }
+    if(m_av_type&AVType::TYPEVIDEO){
+        m_video_player_thread->Start();
+    }
+    if(m_av_type&AVType::TYPEAUDIO){
+        m_audio_player->Start();
+    }
     //可捕获该信号作为播放开始的标志
     emit PlayStart();
 }

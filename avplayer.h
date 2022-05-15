@@ -4,6 +4,7 @@
 
 #include "avdecoder.h"
 #include "videoplayerthread.h"
+#include "audioplayer.h"
 
 class AVPlayer : public QObject
 {
@@ -41,11 +42,15 @@ public:
     //获取当前播放帧信息
     VideoFrame* GetCurrentFrame();
 
+    AVPlayer::AVPlayerState GetPlayState() const;
     void* operator new(size_t)=delete;
 
 signals:
     void PlayFinish();
     void PlayStart();
+    void PlayStateChange(AVPlayer::AVPlayerState);
+    void VideoPositionChange(qint64);
+    void urlError();
 
 public slots:
     //接收到解码初始化环境成功的信号
@@ -57,12 +62,14 @@ private:
 
 private:
     AVPlayerState m_state;
+    uint32_t m_av_type;
     int m_play_mode;
     double m_play_speed;
 
     QMutex mutex;
     void* m_winId;
     VideoPlayerThread* m_video_player_thread = nullptr;  
+    AudioPlayer* m_audio_player=nullptr;
     AVDecoder* m_decoder=nullptr;
 };
 

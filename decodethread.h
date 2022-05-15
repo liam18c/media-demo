@@ -33,6 +33,7 @@ signals:
     void sendAudioFrame(AudioFrame* frame);
 
     void initSucceed();
+    void urlError();
 
 protected:
     void run() override;

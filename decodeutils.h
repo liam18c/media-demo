@@ -1,4 +1,4 @@
-#ifndef DECODEUTILS_H
+﻿#ifndef DECODEUTILS_H
 #define DECODEUTILS_H
 
 #include <QByteArray>
@@ -14,9 +14,17 @@ extern "C" {
     #include <libswresample/swresample.h>
 }
 
+class AVType{
+public:
+    const static uint32_t TYPENONE=1;
+    const static uint32_t TYPEVIDEO=2;
+    const static uint32_t TYPEAUDIO=4;
+};
+
 struct AVInfomation {
     //视频信息
     double duration = 0;
+    uint32_t type=AVType::TYPENONE;
 
     //视频流信息
     int frame_rate = 0;

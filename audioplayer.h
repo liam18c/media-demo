@@ -3,23 +3,28 @@
 
 #include <QThread>
 #include <QWaitCondition>
-#include <avdecoder.h>
+
 #include <SDL.h>
 
-class AudioPlayer
+#include "avdecoder.h"
+
+class AudioPlayer:public QObject
 {
+    Q_OBJECT
 public:
     AudioPlayer();
     void Init(AVDecoder*);
-
     void Start();
     void Resume();
     void Stop();
     void Close();
+    void SetPlayMode(int flag);
     static void SetVolume(double volume);
 
+signals:
+    void PlayFinish();
+
 private:
-    void release();
     static void fillAudioBuffer(void*, Uint8*, int);
 
 private:
@@ -28,6 +33,7 @@ private:
     uint8_t* m_extra_data=nullptr;
     int m_extra_len=-1;
     static double m_volume;
+    int m_play_mode;
 
     AVInfomation* m_information;
     AVDecoder* m_decoder=nullptr;

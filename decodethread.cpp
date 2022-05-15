@@ -17,8 +17,7 @@ void DecodeThread::Init(const QString& url) {
     ret = avformat_open_input(&m_fmt_ctx, url.toStdString().c_str(), 0, 0);
     if (ret < 0) {
         av_strerror(ret, m_errbuf, ERROR_BUF_SIZE);
-        printf("Open file failed:");
-        printf("%s\n", m_errbuf);
+        emit urlError();
         return;
     }
     ret = avformat_find_stream_info(m_fmt_ctx, 0);
@@ -29,6 +28,7 @@ void DecodeThread::Init(const QString& url) {
         const AVCodecParameters* codec_paras = m_fmt_ctx->streams[i]->codecpar;
         if (codec_paras->codec_type == AVMEDIA_TYPE_VIDEO) {
             //填充视频信息
+            m_avInfomation->type|=AVType::TYPEVIDEO;
             m_video_stream = i;
             m_avInfomation->frame_rate = in_stream->avg_frame_rate.num / in_stream->avg_frame_rate.den;
             //qDebug("%d", m_avInfomation->frame_rate);
@@ -53,6 +53,7 @@ void DecodeThread::Init(const QString& url) {
             }
         } else if (codec_paras->codec_type == AVMEDIA_TYPE_AUDIO) {
             //打开音频信息
+            m_avInfomation->type|=AVType::TYPEAUDIO;
             m_audio_stream = i;
             m_audio_codec = avcodec_find_decoder(codec_paras->codec_id);
             if (m_audio_codec == NULL) {
