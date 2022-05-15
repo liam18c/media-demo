@@ -149,7 +149,9 @@ public slots:
             while (!m_audio_frame_stack.empty() && std::abs(frame->pos - m_audio_frame_stack.top()->pos) >= 0.1) {
                 delete m_audio_frame_stack.top();
                 m_audio_frame_stack.pop();
+                m_cur_pos=frame->pos;
             }
+            m_cur_pos=std::max(0.0,std::min(m_cur_pos,frame->pos));
             m_audio_frame_stack.push(frame);
         } else {
             delete frame;

@@ -19,7 +19,8 @@ public:
     void Stop();
     void Close();
     void SetPlayMode(int flag);
-    static void SetVolume(double volume);
+    void SetVolume(double volume);
+    AudioFrame* GetCurrentFrame();
 
 signals:
     void PlayFinish();
@@ -32,8 +33,9 @@ private:
 
     AudioFrame* m_audio_frame=nullptr;
     int m_extra_len=-1;
-    static double m_volume;
+    double m_volume;
     int m_play_mode;
+    std::atomic_bool m_exit = false;
 
     AVInfomation* m_information;
     AVDecoder* m_decoder=nullptr;

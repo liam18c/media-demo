@@ -46,7 +46,8 @@ void AVDecoder::Close() {
     m_state = AVState::CLOSE;
     emit exit();
     emit stopInverter();
-    m_play_mode = 1;
+//    m_play_mode = 1;
+    SetPlayMode(1);
     m_play_speed = 1;
     m_seek_pos = 0;
     m_video_clock = 0;

@@ -110,6 +110,7 @@ void VideoPlayerThread::run(){
             VideoFrame* videoFrame=m_decoder->GetVideoFrame();
             if(videoFrame==nullptr){
                 m_mutex.unlock();
+                printf("no data\n");
                 continue;
             }
             delete m_videoFrame;
@@ -123,11 +124,14 @@ void VideoPlayerThread::run(){
             SDL_RenderPresent(m_sdl_render);
             SDL_Delay(1000*videoFrame->duration);
             m_mutex.unlock();
+            printf("%f %f %f\n",videoFrame->pos,videoFrame->duration,m_information->duration);
             if(m_information->type&AVType::TYPEVIDEO){
                 if((m_play_mode==1&&videoFrame->pos+videoFrame->duration>=m_information->duration-0.1)
                         ||(m_play_mode==-1&&videoFrame->pos-videoFrame->duration<=0.1)){
                     //可捕获该信号作为播放结束的标志
                     emit PlayFinish();
+                    printf("1\n");
+                    QThread::msleep(10);
                     break;
                 }
             }

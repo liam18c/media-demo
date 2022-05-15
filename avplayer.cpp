@@ -35,6 +35,9 @@ void AVPlayer::Start(const QString& url,void* winId){
         mutex.lock();
     }
     m_state=START;
+    m_play_mode=1;
+    m_play_speed=1.0;
+    m_av_type=AVType::TYPENONE;
     m_winId=winId;
     m_decoder->Open(url);
     emit PlayStateChange(m_state);
@@ -92,7 +95,6 @@ void AVPlayer::Close(){
     m_state=CLOSE;
     m_play_mode=1;
     m_play_speed=1.0;
-    AudioPlayer::SetVolume(1.0);
     m_av_type=AVType::TYPENONE;
     mutex.unlock();
     emit PlayStateChange(m_state);
@@ -105,14 +107,31 @@ void AVPlayer::SetPlayMode(int flag){
         return;
     }
     m_play_mode=flag;
-    VideoFrame* frame=m_video_player_thread->GetCurrentFrame();
-    if(!frame){
-        mutex.unlock();
-        return;
+    if(m_av_type&AVType::TYPEVIDEO){
+        VideoFrame* frame=m_video_player_thread->GetCurrentFrame();
+        if(!frame){
+            mutex.unlock();
+            return;
+        }
+        m_decoder->SetPlayMode(flag);
+        m_decoder->SetPos(frame->pos,0);
     }
-    m_decoder->SetPlayMode(flag);
-    m_decoder->SetPos(frame->pos,0);
-    m_video_player_thread->SetPlayMode(flag);
+    else if(m_av_type&AVType::TYPEAUDIO){
+        AudioFrame* frame=m_audio_player->GetCurrentFrame();
+        if(!frame){
+            mutex.unlock();
+            return;
+        }
+        m_decoder->SetPlayMode(flag);
+        m_decoder->SetPos(frame->pos,0);
+    }
+
+    if(m_av_type&AVType::TYPEVIDEO){
+        m_video_player_thread->SetPlayMode(flag);
+    }
+    if(m_av_type&AVType::TYPEAUDIO){
+        m_audio_player->SetPlayMode(flag);
+    }
     mutex.unlock();
 }
 
@@ -135,7 +154,9 @@ void AVPlayer::SetPos(double sec){
 
 void AVPlayer::SetVolume(double volume){
     mutex.lock();
-    AudioPlayer::SetVolume(volume);
+    if(m_av_type&AVType::TYPEAUDIO){
+        m_audio_player->SetVolume(volume);
+    }
     mutex.unlock();
 }
 
@@ -150,13 +171,25 @@ AVInfomation* AVPlayer::GetAVInformation(){
     return ret;
 }
 
-VideoFrame* AVPlayer::GetCurrentFrame(){
+double AVPlayer::GetCurrentPos(){
     mutex.lock();
     if(m_state==CLOSE){
         mutex.unlock();
-        return nullptr;
+        return 0;
     }
-    VideoFrame* ret=m_video_player_thread->GetCurrentFrame();
+    double ret=0;
+    if(m_av_type&AVType::TYPEVIDEO){
+        VideoFrame* videoFrame=m_video_player_thread->GetCurrentFrame();
+        if(videoFrame){
+            ret=videoFrame->pos;
+        }
+    }
+    else if(m_av_type&AVType::TYPEAUDIO){
+        AudioFrame* audioFrame=m_audio_player->GetCurrentFrame();
+        if(audioFrame){
+            ret=audioFrame->pos;
+        }
+    }
     mutex.unlock();
     return ret;
 }

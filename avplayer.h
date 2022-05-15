@@ -39,8 +39,8 @@ public:
     void SetVolume(double volume);
     //获取音视频信息
     AVInfomation* GetAVInformation();
-    //获取当前播放帧信息
-    VideoFrame* GetCurrentFrame();
+    //获取当前播放位置
+    double GetCurrentPos();
 
     AVPlayer::AVPlayerState GetPlayState() const;
     void* operator new(size_t)=delete;
