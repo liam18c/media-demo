@@ -26,7 +26,6 @@ public:
 
 signals:
     void PlayFinish();
-    void VideoPositionChange(qint64);
 
 protected:
     void run() override;

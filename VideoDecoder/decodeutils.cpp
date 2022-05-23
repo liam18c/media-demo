@@ -1,4 +1,3 @@
-
 #include "decodeutils.h"
 
 uint8_t* yuvToRGB24(AVFrame* pFrame, int outWidth, int outHeight, AVPixelFormat srcPixelFormat) {

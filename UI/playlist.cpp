@@ -7,11 +7,23 @@ PlayList::PlayList(QObject *parent)
       curIndex_(-1),oldIndex_(-1) {}
 
 void PlayList::AddMedia(const QString &path, int pos) {
+    QFileInfo file = QFileInfo(path);
+    const QString& file_name = file.fileName();
+    QList<QString> file_path = file_name.split(".");
+    if(file_path[file_path.size()-1] == "mp3") {
+        PlayItem new_item;
+        new_item.ItemID_ = ID++;
+        new_item.path_ = path;
+        new_item.file_name_ = file_name;
+        new_item.cover_path_ = ":/iconsource/audio.jpg";
+        int insertpos = pos==-1? this->playlist_.size():pos; //是否随机插入
+        this->playlist_.insert(insertpos,new_item);
+        emit this->PlayItemAdd(insertpos,insertpos); //完成插入
+        return;
+    }
     FrameGrabber* grabber = new FrameGrabber();
     if(grabber->GrabFrame(QUrl(path))) { //item插入m_playlist
         connect(grabber,&FrameGrabber::framebeFetched,this, [=](const QImage& image) {
-            QFileInfo file = QFileInfo(path);
-            const QString& file_name = file.fileName();
             QString image_name = file_name.split(".").at(0)+".png";
             QFileInfo info(image_name);
             int index=0;
@@ -86,7 +98,9 @@ void PlayList::DeleteMedias(QList<int> indexs){
             change++;
         }
     }
-    SetCurIndex(this->playlist_.size()>0?(curIndex_-change+this->playlist_.size())%this->playlist_.size():-1);
+    if(curIndex_ !=-1) {
+        SetCurIndex(this->playlist_.size()>0?(curIndex_-change+this->playlist_.size())%this->playlist_.size():-1);
+    }
 }
 
 int PlayList::GetCurIndex() const
@@ -109,18 +123,6 @@ void PlayList::SetCurIndex(int newCurIndex)
 
     curIndex_ = newCurIndex;
     emit CurIndexChange(newCurIndex);
-}
-
-void PlayList::SetCurItemLost()
-{
-     curPlayitem_.lost = true;
-     for (int index = 0; index < playlist_.size(); index++) {
-         if(playlist_[index].ItemID_ == curPlayitem_.ItemID_) {
-             this->playlist_[index].lost = true;
-             qDebug()<<playlist_[index].lost;
-             qDebug()<<"1";
-         }
-     }
 }
 
 const PlayItem &PlayList::GetCurPlayItem() const {

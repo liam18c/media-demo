@@ -138,7 +138,7 @@ void DecodeThread::run() {
             } else {
                 av_strerror(ret, m_errbuf, 1024);
                 //qDebug("%s", m_errbuf);
-                m_stop.store(true);
+                //m_stop.store(true);
             }
         } else {
             QThread::msleep(1);

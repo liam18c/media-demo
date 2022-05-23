@@ -21,14 +21,17 @@ public:
     void SetControlWidgetVisible();
     void SetControlWidgetUnVisible();
     void ResizeControlWidget();
+    QWidget* GetVideoWidget() ;
 signals:
     void mousemoved();
 
 private:
+    QWidget* videowidget_;
     QWidget* controlwidget_;
 
 protected:
     void mouseMoveEvent(QMouseEvent* event) Q_DECL_OVERRIDE;
+    void resizeEvent(QResizeEvent* event)Q_DECL_OVERRIDE;
 };
 
 #endif // MYVIDEOWIDGET_H

@@ -12,9 +12,8 @@ public:
     QString path_;
     QString file_name_;
     QString cover_path_;
-    bool lost;
 
-    PlayItem():ItemID_(-1),path_(""), file_name_(""), cover_path_(),lost(false){}
+    PlayItem():ItemID_(-1),path_(""), file_name_(""), cover_path_(){}
     friend QDataStream& operator<<(QDataStream& datastream,const PlayItem& item)
     {
         datastream<<item.ItemID_<<item.path_<<item.file_name_<<item.cover_path_;
@@ -47,7 +46,6 @@ public:
 
     int GetCurIndex() const;
     void SetCurIndex(int newCurIndex);
-    void SetCurItemLost();
     const PlayItem& GetCurPlayItem() const;
     const int GetCurListSize() const;
 

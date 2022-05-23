@@ -40,7 +40,7 @@ public:
     //获取音视频信息
     AVInfomation* GetAVInformation();
     //获取当前播放帧信息
-    VideoFrame* GetCurrentFrame();
+    AudioFrame* GetCurrentFrame();
 
     double GetVideoVolume() const;
 
@@ -54,6 +54,7 @@ signals:
     void VideoPositionChange(qint64);
     void urlError();
     void VideoSpeedChange(double);
+    void VideoModeChange(int);
 
 public slots:
     //接收到解码初始化环境成功的信号

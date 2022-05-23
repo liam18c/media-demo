@@ -1,6 +1,5 @@
 ﻿#include "videoplayerthread.h"
 
-
 VideoPlayerThread::VideoPlayerThread(){
 }
 
@@ -57,7 +56,6 @@ void VideoPlayerThread::Stop(){
 }
 
 void VideoPlayerThread::Close(){
-    QThread::msleep(10);
     m_play_mode=1;
     m_stop.store(true);
     m_exit.store(true);
@@ -115,7 +113,6 @@ void VideoPlayerThread::run(){
             }
             delete m_videoFrame;
             m_videoFrame=videoFrame;
-            emit VideoPositionChange(m_videoFrame->pos * 1000);
             //更新和播放
             sdlResize();
             SDL_UpdateTexture(m_sdl_texture, NULL, videoFrame->data, (videoFrame->width)*3);
@@ -129,6 +126,7 @@ void VideoPlayerThread::run(){
                         ||(m_play_mode==-1&&videoFrame->pos-videoFrame->duration<=0.1)){
                     //可捕获该信号作为播放结束的标志
                     emit PlayFinish();
+                    QThread::msleep(10);
                     break;
                 }
             }

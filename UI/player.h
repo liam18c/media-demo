@@ -26,6 +26,7 @@
 #include <QFileDialog>
 #include <QStandardPaths>
 #include <QKeyEvent>
+#include <QTimer>
 
 class Player : public QWidget
 {
@@ -59,16 +60,18 @@ private slots:
     void OnListButton();
     void OnFullScreenButton();
     void OnPlayModeButton();
+    void OnBackRunButton();
 
     void OnSeek();
     void OnSeek(qint64 position);
     void OnSeekPervious();
     void OnSeekNext();
     void OnVideoDurationChange(qint64 duration);
-    void OnVideoPositionChange(qint64 position);
+    void OnVideoPositionChange();
     void OnPlayBackRateChange(qreal value);
     void OnAudioVolumeChange(float volume);
     void OnUrlError();
+    void OnBackRun(int flag);
 
 private:
     QToolButton* playButton_;
@@ -78,6 +81,7 @@ private:
     QToolButton* nextButton_;
     QToolButton* fullscreen_;
     QPushButton* playmodeButton_;
+    QPushButton* backRunButton_;
     QPushButton* rateButton_;
     QPushButton* listButton_;
 
@@ -92,7 +96,8 @@ private:
     PlayListModel* playlistModel_;
 
     int curplaymode_;
-
+    int runflag_;
+    QTimer* timer_;
 protected:
     void dragEnterEvent(QDragEnterEvent* event) Q_DECL_OVERRIDE;
     void dropEvent(QDropEvent* event) Q_DECL_OVERRIDE;

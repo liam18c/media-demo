@@ -7,5 +7,6 @@
         <file>iconsource/previous.png</file>
         <file>iconsource/seekbackward.png</file>
         <file>iconsource/seekforward.png</file>
+        <file>iconsource/audio.jpg</file>
     </qresource>
 </RCC>

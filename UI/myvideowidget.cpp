@@ -4,15 +4,18 @@ MyVideoWidget::MyVideoWidget(QWidget *parent)
     : QWidget{parent}
 {
 
+    videowidget_ = new QWidget(this);
+    videowidget_->setMouseTracking(true);
+
     controlwidget_ = new QWidget();
     controlwidget_->setWindowFlags(Qt::Tool|Qt::FramelessWindowHint);
 
     controlwidget_->setStyleSheet("QWidget{background-color:transparent}");
     controlwidget_->setWindowOpacity(0.7);
-    ResizeControlWidget();
 
     SetControlWidgetVisible();
     SetControlWidgetUnVisible();
+
     this->setUpdatesEnabled(false);
     this->setMouseTracking(true);
 
@@ -25,6 +28,7 @@ MyVideoWidget::MyVideoWidget(QWidget *parent)
        this->setCursor(Qt::BlankCursor);
        SetControlWidgetUnVisible();
     });
+
 }
 
 MyVideoWidget::~MyVideoWidget()
@@ -50,6 +54,11 @@ void MyVideoWidget::ResizeControlWidget() {
     this->controlwidget_->setGeometry(pos.x(),pos.y()+this->height()-controlwidget_->height(),this->width(),30);
 }
 
+QWidget *MyVideoWidget::GetVideoWidget()
+{
+    return videowidget_;
+}
+
 void MyVideoWidget::mouseMoveEvent(QMouseEvent *event) {
     event->accept();
     if(!this->controlwidget_->isVisible()){
@@ -58,3 +67,10 @@ void MyVideoWidget::mouseMoveEvent(QMouseEvent *event) {
         emit mousemoved();
     }
 }
+
+void MyVideoWidget::resizeEvent(QResizeEvent* event)
+{
+    this->videowidget_->resize(this->size());
+    ResizeControlWidget();
+}
+

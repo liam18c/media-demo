@@ -21,8 +21,11 @@ public:
     void SetPlayMode(int flag);
     static void SetVolume(double volume);
     double static GetVolume();
+    AudioFrame* GetCurrentFrame();
+
 signals:
     void PlayFinish();
+    void AudioPositionChange(qint64);
 
 private:
     static void fillAudioBuffer(void*, Uint8*, int);
@@ -30,10 +33,11 @@ private:
 private:
     SDL_AudioSpec m_sdl_audio_spec;
 
-    uint8_t* m_extra_data=nullptr;
+    AudioFrame* m_audio_frame=nullptr;
     int m_extra_len=-1;
     static double m_volume;
     int m_play_mode;
+    std::atomic_bool m_exit = false;
 
     AVInfomation* m_information;
     AVDecoder* m_decoder=nullptr;

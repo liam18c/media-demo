@@ -16,9 +16,6 @@ AVPlayer::AVPlayer()
     connect(m_decoder,&AVDecoder::Ready,this,&AVPlayer::GetDecoderReady);
     connect(m_video_player_thread,&VideoPlayerThread::PlayFinish,this,&AVPlayer::GetPlayFinish);
     connect(m_audio_player,&AudioPlayer::PlayFinish,this,&AVPlayer::GetPlayFinish);
-    connect(m_video_player_thread,&VideoPlayerThread::VideoPositionChange,this,[&](qint64 pos){
-        emit this->VideoPositionChange(pos);
-    });
     connect(m_decoder,&AVDecoder::urlError,this,[&](){
         emit this->urlError();
     });
@@ -92,7 +89,6 @@ void AVPlayer::Close(){
     m_play_mode=1;
     m_play_speed=1.0;
     emit VideoSpeedChange(m_play_speed);
-    AudioPlayer::SetVolume(1.0);
     m_av_type=AVType::TYPENONE;
     emit PlayStateChange(m_state);
     mutex.unlock();
@@ -116,6 +112,7 @@ void AVPlayer::SetPlayMode(int flag){
     m_decoder->SetPos(frame->pos,0);
     m_video_player_thread->SetPlayMode(flag);
     mutex.unlock();
+    emit VideoModeChange(flag);
 }
 
 void AVPlayer::SetPlaySpeed(double speed){
@@ -153,13 +150,13 @@ AVInfomation* AVPlayer::GetAVInformation(){
     return ret;
 }
 
-VideoFrame* AVPlayer::GetCurrentFrame(){
+AudioFrame* AVPlayer::GetCurrentFrame(){
     mutex.lock();
     if(m_state==CLOSE){
         mutex.unlock();
         return nullptr;
     }
-    VideoFrame* ret=m_video_player_thread->GetCurrentFrame();
+    AudioFrame* ret=m_audio_player->GetCurrentFrame();
     mutex.unlock();
     return ret;
 }

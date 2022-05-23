@@ -5,6 +5,7 @@
 Player::Player(QWidget *parent)
     : QWidget{parent}
 {
+     timer_ = new QTimer();
      playButton_ = new QToolButton(this); //播放按钮
      playButton_->setIcon(QIcon(":/iconsource/pause.png"));
      playButton_->setIconSize(QSize(36,36));
@@ -38,6 +39,12 @@ Player::Player(QWidget *parent)
      playmodeButton_->setFlat(true);
      playmodeButton_->setStyleSheet("QPushButton{color:white}");
      curplaymode_ = 1;
+
+     backRunButton_ = new QPushButton(this);
+     backRunButton_->setText("倒放");
+     backRunButton_->setFlat(true);
+     backRunButton_->setStyleSheet("QPushButton{color:white}");
+     runflag_ = 1;
 
      fullscreen_ = new QToolButton(this);
      fullscreen_->setIcon(QIcon(":/iconsource/fullscreen.png"));
@@ -84,23 +91,25 @@ void Player::SetupLayout()
     tool_layout->addWidget(audiolabel_);
     tool_layout->addWidget(audioslider_);
     tool_layout->addWidget(audiolabelmax_);
-    tool_layout->addSpacing(45);
+    tool_layout->addSpacing(10);
     tool_layout->addWidget(backwardButton_);
-    tool_layout->addSpacing(30);
+    tool_layout->addSpacing(25);
     tool_layout->addWidget(previousButton_);
-    tool_layout->addSpacing(30);
+    tool_layout->addSpacing(25);
     tool_layout->addWidget(playButton_);
-    tool_layout->addSpacing(30);
+    tool_layout->addSpacing(25);
     tool_layout->addWidget(nextButton_);
-    tool_layout->addSpacing(30);
+    tool_layout->addSpacing(25);
     tool_layout->addWidget(forwardButton_);
     tool_layout->addSpacing(25);
     tool_layout->addWidget(rateButton_);
-    tool_layout->addSpacing(25);
+    tool_layout->addSpacing(15);
     tool_layout->addWidget(playmodeButton_);
-    tool_layout->addSpacing(25);
+    tool_layout->addSpacing(15);
+    tool_layout->addWidget(backRunButton_);
+    tool_layout->addSpacing(15);
     tool_layout->addWidget(listButton_);
-    tool_layout->addSpacing(25);
+    tool_layout->addSpacing(20);
     tool_layout->addWidget(fullscreen_);
     tool_layout->addStretch();
 
@@ -117,7 +126,7 @@ void Player::SetupLayout()
 
     QBoxLayout* top_layout = new QHBoxLayout();//播放器和视频列表横向布局
     top_layout->addWidget(videoOutput_,17);
-    top_layout->addWidget(playlistView_,5);
+    top_layout->addWidget(playlistView_,4);
 
     layout->addLayout(top_layout);
     this->setLayout(layout);
@@ -150,10 +159,11 @@ void Player::SetupPlayList() {
     connect(rateButton_,&QPushButton::clicked,this,&Player::OnRateButton);
     connect(listButton_,&QPushButton::clicked,this,&Player::OnListButton);
     connect(playmodeButton_, &QPushButton::clicked,this,&Player::OnPlayModeButton);//改变播放模式
-    connect(fullscreen_,&QToolButton::clicked,this,&Player::OnFullScreenButton);
+    connect(fullscreen_, &QToolButton::clicked,this,&Player::OnFullScreenButton);
+    connect(backRunButton_, &QPushButton::clicked, this, &Player::OnBackRunButton);
 
     connect(player_, &AVPlayer::PlayStateChange, this, &Player::OnPlayStatuChange);
-    connect(player_, &AVPlayer::VideoPositionChange, this, &Player::OnVideoPositionChange);
+    connect(timer_, &QTimer::timeout, this, &Player::OnVideoPositionChange);
     connect(player_, &AVPlayer::PlayFinish, this, &Player::OnMediaFinish);
     connect(player_, &AVPlayer::urlError, this, &Player::OnUrlError);
     connect(player_, &AVPlayer::VideoSpeedChange, this, &Player::OnPlayBackRateChange);
@@ -161,7 +171,7 @@ void Player::SetupPlayList() {
     connect(slider_, &QSlider::sliderMoved, this, qOverload<qint64>(&Player::OnSeek));
     connect(slider_, &QSlider::sliderPressed, this, qOverload<>(&Player::OnSeek));
     connect(audioslider_, &QSlider::sliderMoved,this,&Player::OnAudioSlider);
-
+    connect(player_, &AVPlayer::VideoModeChange,this, &Player::OnBackRun);
 }
 
 void Player::OnPlayItemClick(const QModelIndex& index) {
@@ -205,13 +215,18 @@ void Player::OnPlayModeButton(){
     menu->exec(QCursor::pos()-QPoint(0,90));
 }
 
+void Player::OnBackRunButton()
+{
+    this->player_->SetPlayMode(-runflag_);
+}
+
 void Player::OnAddPlayItem(){
 
     const QStringList& files = QFileDialog::getOpenFileNames(
           this,
           tr("Choose Video"),
           QStandardPaths::standardLocations(QStandardPaths::MoviesLocation).value(0,QDir::homePath()),
-          tr("Video Files (*.mp4 *.mov)")
+          tr("Video Files (*.mp4 *.mov *.mp3)")
           );
 
     if (!files.isEmpty()) {
@@ -242,11 +257,12 @@ void Player::OnAudioSlider(qint64 position)
 }
 
 void Player::OnPlay(const PlayItem& playitem) {
+    if(!Init) Init = true;
     if(playitem.ItemID_<0) {
         player_->Stop();
         return;
     }
-    player_->Start(playitem.path_, (void*)this->videoOutput_->winId());
+    player_->Start(playitem.path_, (void*)this->videoOutput_->GetVideoWidget()->winId());
     double durationtime_ = (player_->GetAVInformation()->duration - 1) * 1000;
     OnVideoDurationChange(durationtime_);
 }
@@ -258,7 +274,6 @@ void Player::OnSeek()
 
 void Player::OnSeek(qint64 position)
 {
-    OnVideoPositionChange(position);
     this->player_->SetPos(position / 1000);
 }
 
@@ -268,6 +283,7 @@ void Player::OnVideoDurationChange(qint64 duration) {
 
 void Player::OnPlayStatuChange(AVPlayer::AVPlayerState newstate) {
     if(newstate == AVPlayer::AVPlayerState::START) {
+        timer_->start(5);
         playButton_->setIcon(QIcon(":/iconsource/play.png"));
     }
     else {
@@ -275,7 +291,8 @@ void Player::OnPlayStatuChange(AVPlayer::AVPlayerState newstate) {
     }
 }
 
-void Player::OnVideoPositionChange(qint64 position) {
+void Player::OnVideoPositionChange() {
+    qint64 position = player_->GetCurrentFrame()->pos * 1000;
     if (!slider_->isSliderDown()) {
          slider_->setValue(position);
          audioslider_->setValue(player_->GetVideoVolume() * 100);
@@ -295,6 +312,8 @@ void Player::OnVideoPositionChange(qint64 position) {
     }
 }
 void Player::OnMediaFinish() {
+    timer_->stop();
+    if(this->runflag_ == -1) return;
     if(curplaymode_ > 0)
         playlistModel_->GetPlayList()->Next(curplaymode_);
     else if(curplaymode_ == 0){
@@ -316,9 +335,19 @@ void Player::OnAudioVolumeChange(float volume) {
 void Player::OnUrlError() {
     QMessageBox msgBox; // 弹窗提示
     msgBox.setIcon(QMessageBox::Warning);
-    msgBox.setText("Open file failed:No such file or directory");
+    msgBox.setText("Open file failed: file is missing");
     msgBox.exec();
-    playlistModel_->GetPlayList()->SetCurItemLost();
+}
+
+void Player::OnBackRun(int flag)
+{
+    this->runflag_ = flag;
+    if (flag == 1) {
+        this->backRunButton_->setText("倒放");
+    }
+    else {
+        this->backRunButton_->setText("正放");
+    }
 }
 
 void Player::OnPauseOrPlayButton() {
@@ -342,17 +371,10 @@ void Player::OnCurrentIndexChanged(int index) {
     playlistView_->setCurrentIndex(playlistModel_->index(index,0));
     int curIndex = playlistModel_->GetPlayList()->GetCurIndex();
     for(int index = 0; index < playlistModel_->GetPlayList()->GetCurListSize(); index++) {
-        if (playlistModel_->GetPlayList()->PlayItemAt(index).lost == false) {
-             playlistModel_->item(index)->setForeground(QBrush(QColor(255, 255, 255)));
-        }
-        else {
-             playlistModel_->item(index)->setForeground(QBrush(QColor(123,123,123)));
-        }
+        playlistModel_->item(index)->setForeground(QBrush(QColor(255, 255, 255)));
     }
     if (curIndex != -1) {
-        if (playlistModel_->GetPlayList()->PlayItemAt(curIndex).lost == false) {
-            playlistModel_->item(curIndex)->setForeground(QBrush(QColor(230, 255, 20)));
-        }
+        playlistModel_->item(curIndex)->setForeground(QBrush(QColor(230, 255, 20)));
     }
 }
 
@@ -367,11 +389,11 @@ void Player::OnBackwardButton() {
 void Player::OnRateButton() {
 
     std::shared_ptr<QMenu> menu = std::make_shared<QMenu>();
-    QAction* midrate = menu->addAction("×0.5");
+    QAction* halfrate = menu->addAction("×0.5");
     QAction* originrate = menu->addAction("×1.0");
     QAction* doublerate = menu->addAction("×2.0");
     QAction* fourthrate = menu->addAction("×4.0");
-    connect(midrate,&QAction::triggered, this,[&](){
+    connect(halfrate,&QAction::triggered, this,[&](){
         this->player_->SetPlaySpeed(0.5);
     });
     connect(originrate,&QAction::triggered, this,[&](){
@@ -390,15 +412,13 @@ void Player::OnRateButton() {
 }
 
 void Player::OnFullScreenButton() {
-    if(!this->videoOutput_->isFullScreen()) {
+    if(!this->videoOutput_->isFullScreen() && player_->GetPlayState() == AVPlayer::AVPlayerState::START) {
         videoOutput_->setWindowFlags(Qt::Window);
         videoOutput_->showFullScreen();
-        videoOutput_->ResizeControlWidget();
     }
     else {
         videoOutput_->setWindowFlags(Qt::SubWindow);
         videoOutput_->showNormal();
-        videoOutput_->ResizeControlWidget();
     }
 }
 
@@ -411,7 +431,6 @@ void Player::OnListButton() {
         playlistView_->setVisible(true);
         listButton_->setText("隐藏列表");
     }
-    this->videoOutput_->SetControlWidgetUnVisible();
 }
 
 void Player::AddToPlayList(QList<QString> files) {
